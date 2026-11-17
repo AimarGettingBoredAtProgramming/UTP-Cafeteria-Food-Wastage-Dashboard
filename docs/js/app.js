@@ -48,17 +48,24 @@
 
   /* ------------------------------------------------------------ calendar */
   function calendarFor(iso) {
+    const inside = (CAL.periods || []).filter((x) => x.start <= iso && iso <= x.end);
+    // the most specific period wins: a "no physical class" week sits inside the lecture period
+    const p = inside.find((x) => x.type === "no_class") || inside[0];
+    const est = p && p.estimated;
+    const semLine = (p ? p.semester : "") + (est ? " · estimated dates" : "");
     const hol = (CAL.public_holidays || []).find((h) => h.date === iso);
-    if (hol) return { calendar: "Holiday / break", title: hol.name, sub: "Perak public holiday", ico: "🏖️" };
-    const p = (CAL.periods || []).find((x) => x.start <= iso && iso <= x.end);
-    if (!p) return { calendar: "Normal week", title: "No calendar entry", sub: "Treated as a normal week", ico: "📘" };
+    if (hol) return { calendar: "Holiday / break", title: hol.name, sub: "Public holiday" + (p ? ` · ${p.semester}` : ""), ico: "🏖️", estimated: false };
+    if (!p) return { calendar: "Normal week", title: "No calendar entry", sub: "Treated as a normal week", ico: "📘", estimated: false };
     if (p.type === "teaching") {
       const wk = Math.floor((toDate(iso) - toDate(p.start)) / 864e5 / 7) + 1;
-      return { calendar: "Normal week", title: `Teaching week ${wk}`, sub: CAL.semester || "Semester", ico: "📘" };
+      return { calendar: "Normal week", title: `Lecture week ${wk}`, sub: semLine, ico: "📘", estimated: est };
     }
-    const map = { study: ["Exam week", "📚"], exam: ["Exam week", "📝"], break: ["Holiday / break", "🏖️"] };
+    const map = {
+      study: ["Exam week", "📚"], exam: ["Exam week", "📝"], break: ["Holiday / break", "🏖️"],
+      orientation: ["Holiday / break", "🎒"], no_class: ["Holiday / break", "🏠"],
+    };
     const [cal, ico] = map[p.type] || ["Normal week", "📘"];
-    return { calendar: cal, title: p.name, sub: CAL.semester || "", ico };
+    return { calendar: cal, title: p.name, sub: semLine, ico, estimated: est };
   }
 
   /* ------------------------------------------------------------- weather */
@@ -320,7 +327,7 @@
     }
     $("cal-ico").textContent = sc.cal.ico;
     $("cal-title").textContent = sc.cal.title + (sc.src.cal === "manual" ? " (overridden)" : "");
-    $("cal-sub").textContent = `${sc.cal.sub}${CAL.verified ? "" : " · dates estimated"}${applied}`;
+    $("cal-sub").textContent = `${sc.cal.sub}${applied}`;
 
     const pw = $("pill-weather");
     const wxMap = {
@@ -331,8 +338,8 @@
     pw.className = "pill " + cls;
     pw.innerHTML = `<span class="dot"></span>${txt}`;
     const pc = $("pill-cal");
-    pc.className = "pill " + (CAL.verified ? "ok" : "warn");
-    pc.innerHTML = `<span class="dot"></span>${CAL.verified ? "UTP calendar" : "Calendar · estimated dates"}`;
+    pc.className = "pill " + (sc.cal.estimated ? "warn" : "ok");
+    pc.innerHTML = `<span class="dot"></span>${sc.cal.estimated ? "UTP calendar · estimated" : "UTP academic calendar"}`;
   }
 
   function renderPlan(sc, tier, rec) {
@@ -514,8 +521,8 @@
     $("r-rain").textContent = RULES.heavyRainMm;
     $("r-prob").textContent = RULES.heavyRainProb;
     $("r-pm").textContent = RULES.hazePm25;
-    $("cal-verify").innerHTML = CAL.verified ? "Dates verified against the UTP Registry calendar."
-      : `<span class="warn-text">Semester dates are currently estimated: ${CAL.source || ""}</span>`;
+    $("cal-verify").innerHTML = `The Jan, May and Sept 2027 semesters, "no physical class" weeks and holidays come from the official ${CAL.source || "UTP calendar"}. ` +
+      `<span class="warn-text">The Sept 2026 semester isn't in that document, so its dates are estimated from the 2027 pattern.</span>`;
   }
 
   /* ---------------------------------------------------------------- model */

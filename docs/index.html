@@ -271,7 +271,7 @@
             <li><strong>Weather:</strong> the <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> hourly forecast for UTP (4.385° N, 100.979° E), up to 16 days ahead. Meal windows are lunch 11:00–15:00 and dinner 17:00–21:00.</li>
             <li><strong>Heavy rain:</strong> at least <span id="r-rain">2.5</span> mm of rain in the meal window, or a rain chance of at least <span id="r-prob">75</span>% with 1 mm or more.</li>
             <li><strong>Haze:</strong> average PM2.5 of at least <span id="r-pm">35</span> µg/m³ in the meal window (Malaysian 24-hour standard), from the Open-Meteo air-quality forecast (about 5 days ahead).</li>
-            <li><strong>Calendar:</strong> exam weeks, study week, breaks and Perak public holidays come from <code>docs/data/academic_calendar.js</code>. <span id="cal-verify"></span></li>
+            <li><strong>Calendar:</strong> lecture weeks, study break, exams, semester breaks, orientation, "no physical class on campus" weeks and public holidays come from <code>docs/data/academic_calendar.js</code>. Orientation and no-class weeks count as <em>Holiday / break</em>, and study break counts as <em>Exam week</em>. <span id="cal-verify"></span></li>
             <li>Beyond the forecast range, or if you're offline, the weather falls back to <em>Clear</em>. You can override any live value by hand.</li>
           </ul>
         </div>
