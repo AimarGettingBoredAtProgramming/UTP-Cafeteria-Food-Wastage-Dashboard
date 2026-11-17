@@ -1,9 +1,10 @@
 /* UTP Cafeteria Batch Advisor - dashboard logic.
  *
  * Data sources
- *  - data/dashboard_data.js   trained decision tree + survey summary (built by src/train_model.py)
- *  - data/academic_calendar.js UTP semester periods + Perak public holidays
- *  - Open-Meteo APIs           live weather + air-quality (haze) forecast for UTP
+ *  - data/dashboard_data.js    trained decision tree + survey summary (built by src/train_model.py)
+ *  - data/academic_calendar.js UTP semester periods + public holidays
+ *  - Open-Meteo APIs           live hourly weather + air-quality (haze) forecast for UTP,
+ *                              re-fetched every 10 minutes while the page is open
  *
  * The decision tree trained in Python is walked node-by-node here, so the browser
  * gives exactly the same prediction as the scikit-learn model.
@@ -11,7 +12,7 @@
 (function () {
   "use strict";
   const D = window.DASHBOARD_DATA;
-  const CAL = window.ACADEMIC_CALENDAR || { periods: [], public_holidays: [], verified: false };
+  const CAL = window.ACADEMIC_CALENDAR || { periods: [], public_holidays: [] };
   if (!D) { document.body.innerHTML = "<p style='padding:40px;color:#fff'>dashboard_data.js missing - run <code>python src/run_all.py</code>.</p>"; return; }
 
   const S = D.survey, M = S.multipliers, CFG = D.settings, TREE = D.tree;
@@ -20,95 +21,118 @@
 
   const COLORS = { Low: "#34d399", Medium: "#fbbf24", High: "#f87171", brand: "#38bdf8", teal: "#2dd4bf", grey: "#475569" };
   const SOFT = { Low: "rgba(52,211,153,.14)", Medium: "rgba(251,191,36,.14)", High: "rgba(248,113,113,.14)" };
+  const RANK = { Low: 0, Medium: 1, High: 2 };
   const GRID = "rgba(148,163,184,.10)";
   const DAY_FULL = { Mon: "Monday", Tue: "Tuesday", Wed: "Wednesday", Thu: "Thursday", Fri: "Friday", Sat: "Saturday", Sun: "Sunday" };
-  const ICONS = { Lunch: "🍛", Dinner: "🌙", "Normal week": "📘", "Exam week": "📝", "Holiday / break": "🏖️", Clear: "☀️", "Heavy rain": "🌧️", Haze: "🌫️" };
+  const ICONS = { "Normal week": "📘", "Exam week": "📝", "Holiday / break": "🏖️", Clear: "☀️", "Heavy rain": "🌧️", Haze: "🌫️" };
   const SHORT = { "Normal week": "Normal", "Exam week": "Exam", "Holiday / break": "Holiday" };
   const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-  /* ---------------------------------------------------------- live config */
+  /* ------------------------------------------------------------ settings */
   const UTP = { lat: 4.385, lon: 100.979 };
-  const MEAL_HOURS = { Lunch: [11, 12, 13, 14], Dinner: [17, 18, 19, 20] };
-  const RULES = { heavyRainMm: 2.5, heavyRainProb: 75, heavyRainProbMinMm: 1, hazePm25: 35 };
+  const RULES = { heavyRainMm: 1.0, heavyRainProb: 75, hazePm25: 35 };
+  const REFRESH_MS = 10 * 60 * 1000;
+  const OPEN = 7 * 60, CLOSE = 23 * 60, STEP = 30;
+  // Meal periods (minutes since midnight). `meal` is what the model was trained on.
+  const PERIODS = [
+    { key: "breakfast", name: "Breakfast", icon: "☕", start: 420, end: 630, meal: "Dinner", surveyed: false, color: "#a78bfa" },
+    { key: "prep", name: "Prep", icon: "🔪", start: 630, end: 660, meal: "Dinner", surveyed: false, color: "#64748b", gap: true },
+    { key: "lunch", name: "Lunch", icon: "🍛", start: 660, end: 900, meal: "Lunch", surveyed: true, color: "#38bdf8" },
+    { key: "tea", name: "Tea", icon: "🫖", start: 900, end: 1020, meal: "Dinner", surveyed: false, color: "#2dd4bf" },
+    { key: "dinner", name: "Dinner", icon: "🌙", start: 1020, end: 1260, meal: "Dinner", surveyed: true, color: "#818cf8" },
+    { key: "supper", name: "Supper", icon: "🌃", start: 1260, end: 1381, meal: "Dinner", surveyed: false, color: "#f472b6" },
+  ];
 
-  /* ---------------------------------------------------------------- dates */
-  const todayKL = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kuala_Lumpur" }).format(new Date());
+  /* --------------------------------------------------------- date / time */
+  const klParts = () => {
+    const p = Object.fromEntries(new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kuala_Lumpur", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false })
+      .formatToParts(new Date()).map((x) => [x.type, x.value]));
+    return { iso: `${p.year}-${p.month}-${p.day}`, min: (+p.hour % 24) * 60 + +p.minute };
+  };
+  const todayKL = () => klParts().iso;
+  const nowSlot = () => Math.min(CLOSE, Math.max(OPEN, Math.floor(klParts().min / STEP) * STEP));
   const toDate = (iso) => { const [y, m, d] = iso.split("-").map(Number); return new Date(y, m - 1, d); };
   const toIso = (dt) => `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
   const addDays = (iso, n) => { const d = toDate(iso); d.setDate(d.getDate() + n); return toIso(d); };
   const dowIdx = (iso) => (toDate(iso).getDay() + 6) % 7; // Mon = 0
   const shortDate = (iso) => { const d = toDate(iso); return `${d.getDate()} ${MONTHS[d.getMonth()]}`; };
-
-  /* -------------------------------------------------------------- state */
-  const state = {
-    date: todayKL(), live: true, ovCal: false, ovWx: false,
-    day: "Wed", meal: "Lunch", calendar: "Normal week", weather: "Clear", shortBreak: false, batch: 120,
+  const fmtTime = (min) => {
+    const h = Math.floor(min / 60) % 24, m = min % 60, ap = h < 12 ? "AM" : "PM", h12 = h % 12 || 12;
+    return `${h12}:${String(m).padStart(2, "0")} ${ap}`;
   };
-  const WX = { status: "loading", byDate: {}, first: null, last: null, aqLast: null };
+  const fmtHour = (h) => `${h % 12 || 12} ${h < 12 ? "AM" : "PM"}`;
+  const clock = (ts) => new Date(ts).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Kuala_Lumpur" });
+  const periodOf = (min) => PERIODS.find((p) => p.start <= min && min < p.end) || PERIODS[PERIODS.length - 1];
+  const isPast = (iso, min) => { const k = klParts(); return iso < k.iso || (iso === k.iso && min + STEP <= k.min); };
+
+  /* --------------------------------------------------------------- state */
+  const state = {
+    date: todayKL(), time: nowSlot(), follow: true, live: true, ovCal: false, ovWx: false,
+    day: "Wed", calendar: "Normal week", weather: "Clear", shortBreak: false, batch: 120,
+  };
+  const WX = { status: "loading", hours: {}, first: null, last: null, updated: null };
 
   /* ------------------------------------------------------------ calendar */
   function calendarFor(iso) {
     const inside = (CAL.periods || []).filter((x) => x.start <= iso && iso <= x.end);
-    // the most specific period wins: no-class and blended weeks sit inside the lecture period
     const p = inside.find((x) => x.type === "no_class") || inside.find((x) => x.type === "blended") || inside[0];
     const lectureWeek = () => {
       const t = inside.find((x) => x.type === "teaching");
       return t ? Math.floor((toDate(iso) - toDate(t.start)) / 864e5 / 7) + 1 : null;
     };
-    const est = p && p.estimated;
-    const semLine = (p ? p.semester : "") + (est ? " · estimated dates" : "");
+    const semLine = p ? p.semester + (p.estimated ? " · estimated dates" : "") : "";
     const hol = (CAL.public_holidays || []).find((h) => h.date === iso);
-    if (hol) return { calendar: "Holiday / break", title: hol.name, sub: "Public holiday" + (p ? ` · ${p.semester}` : ""), ico: "🏖️", estimated: false };
-    if (!p) return { calendar: "Normal week", title: "No calendar entry", sub: "Treated as a normal week", ico: "📘", estimated: false };
-    if (p.type === "teaching")
-      return { calendar: "Normal week", title: `Lecture week ${lectureWeek()}`, sub: semLine, ico: "📘", estimated: est };
-    if (p.type === "blended")
-      return { calendar: "Normal week", title: `Lecture week ${lectureWeek()} · blended learning`, sub: semLine + " · some classes online", ico: "💻", estimated: est };
-    const map = {
-      study: ["Exam week", "📚"], exam: ["Exam week", "📝"], break: ["Holiday / break", "🏖️"],
-      orientation: ["Holiday / break", "🎒"], no_class: ["Holiday / break", "🏠"],
-    };
+    if (hol) return { calendar: "Holiday / break", title: hol.name, sub: "Public holiday" + (p ? ` · ${p.semester}` : ""), ico: "🏖️" };
+    if (!p) return { calendar: "Normal week", title: "No calendar entry", sub: "Treated as a normal week", ico: "📘" };
+    if (p.type === "teaching") return { calendar: "Normal week", title: `Lecture week ${lectureWeek()}`, sub: semLine, ico: "📘" };
+    if (p.type === "blended") return { calendar: "Normal week", title: `Lecture week ${lectureWeek()} · blended learning`, sub: semLine + " · some classes online", ico: "💻" };
+    const map = { study: ["Exam week", "📚"], exam: ["Exam week", "📝"], break: ["Holiday / break", "🏖️"], orientation: ["Holiday / break", "🎒"], no_class: ["Holiday / break", "🏠"] };
     const [cal, ico] = map[p.type] || ["Normal week", "📘"];
-    return { calendar: cal, title: p.name, sub: semLine, ico, estimated: est };
+    return { calendar: cal, title: p.name, sub: semLine, ico };
   }
 
   /* ------------------------------------------------------------- weather */
-  async function loadWeather() {
+  async function fetchWeather() {
     const tz = "Asia%2FKuala_Lumpur";
     const fUrl = `https://api.open-meteo.com/v1/forecast?latitude=${UTP.lat}&longitude=${UTP.lon}` +
       `&hourly=precipitation,precipitation_probability,weather_code,temperature_2m&timezone=${tz}&forecast_days=16`;
     const aUrl = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${UTP.lat}&longitude=${UTP.lon}` +
       `&hourly=pm2_5&timezone=${tz}&forecast_days=5`;
-    const [f, a] = await Promise.allSettled([fetch(fUrl).then((r) => r.ok ? r.json() : Promise.reject(r.status)),
-                                             fetch(aUrl).then((r) => r.ok ? r.json() : Promise.reject(r.status))]);
-    if (f.status !== "fulfilled") { WX.status = "error"; return; }
-
-    const slot = (iso, meal) => {
-      WX.byDate[iso] = WX.byDate[iso] || {};
-      return (WX.byDate[iso][meal] = WX.byDate[iso][meal] || { rain: 0, prob: 0, code: 0, temps: [], pm: [] });
-    };
-    const mealOf = (h) => Object.keys(MEAL_HOURS).find((m) => MEAL_HOURS[m].includes(h));
+    const get = (u) => fetch(u, { cache: "no-store" }).then((r) => (r.ok ? r.json() : Promise.reject(r.status)));
+    const [f, a] = await Promise.allSettled([get(fUrl), get(aUrl)]);
+    if (f.status !== "fulfilled") throw new Error("forecast unavailable");
+    const hours = {};
     const H = f.value.hourly;
     H.time.forEach((t, i) => {
-      const meal = mealOf(+t.slice(11, 13));
-      if (!meal) return;
-      const s = slot(t.slice(0, 10), meal);
-      s.rain += H.precipitation[i] || 0;
-      s.prob = Math.max(s.prob, H.precipitation_probability[i] || 0);
-      s.code = Math.max(s.code, H.weather_code[i] || 0);
-      s.temps.push(H.temperature_2m[i]);
+      const iso = t.slice(0, 10), h = +t.slice(11, 13);
+      (hours[iso] = hours[iso] || [])[h] = {
+        rain: H.precipitation[i] || 0, prob: H.precipitation_probability[i] || 0,
+        code: H.weather_code[i] || 0, temp: H.temperature_2m[i], pm: null,
+      };
     });
     if (a.status === "fulfilled") {
       const A = a.value.hourly;
       A.time.forEach((t, i) => {
-        const meal = mealOf(+t.slice(11, 13));
-        if (meal && A.pm2_5[i] != null) slot(t.slice(0, 10), meal).pm.push(A.pm2_5[i]);
+        const slot = hours[t.slice(0, 10)] && hours[t.slice(0, 10)][+t.slice(11, 13)];
+        if (slot && A.pm2_5[i] != null) slot.pm = A.pm2_5[i];
       });
-      WX.aqLast = A.time[A.time.length - 1].slice(0, 10);
     }
-    const dates = Object.keys(WX.byDate).sort();
-    WX.first = dates[0]; WX.last = dates[dates.length - 1];
-    WX.status = a.status === "fulfilled" ? "ok" : "partial";
+    const dates = Object.keys(hours).sort();
+    return { hours, first: dates[0], last: dates[dates.length - 1], aq: a.status === "fulfilled" };
+  }
+
+  async function refreshWeather(reason) {
+    const before = snapshot();
+    try {
+      const r = await fetchWeather();
+      Object.assign(WX, { hours: r.hours, first: r.first, last: r.last, updated: Date.now(), status: r.aq ? "ok" : "partial" });
+      const el = $("updated");
+      el.classList.remove("flash"); void el.offsetWidth; el.classList.add("flash");
+      if (reason !== "initial") announceChanges(before, snapshot());
+    } catch (e) {
+      WX.status = WX.updated ? "stale" : "error";
+    }
+    render();
   }
 
   function codeIcon(code) {
@@ -119,38 +143,37 @@
     return "☀️";
   }
 
-  function weatherFor(iso, meal) {
-    const s = WX.byDate[iso] && WX.byDate[iso][meal];
+  function weatherAt(iso, hour) {
+    const s = WX.hours[iso] && WX.hours[iso][hour];
     if (!s) return null;
-    const pm = s.pm.length ? s.pm.reduce((x, y) => x + y, 0) / s.pm.length : null;
-    const temp = s.temps.length ? Math.round(s.temps.reduce((x, y) => x + y, 0) / s.temps.length) : null;
     let weather = "Clear";
-    if (s.rain >= RULES.heavyRainMm || (s.prob >= RULES.heavyRainProb && s.rain >= RULES.heavyRainProbMinMm)) weather = "Heavy rain";
-    else if (pm != null && pm >= RULES.hazePm25) weather = "Haze";
-    const title = weather === "Heavy rain" ? "Heavy rain expected"
+    if (s.rain >= RULES.heavyRainMm || s.prob >= RULES.heavyRainProb) weather = "Heavy rain";
+    else if (s.pm != null && s.pm >= RULES.hazePm25) weather = "Haze";
+    const title = weather === "Heavy rain"
+      ? (s.code >= 95 ? "Thunderstorm expected" : s.rain >= RULES.heavyRainMm ? "Heavy rain expected" : `Rain likely (${Math.round(s.prob)}% chance)`)
       : weather === "Haze" ? "Hazy air expected"
-      : s.rain >= 0.2 ? "Light showers only" : (s.code >= 2 ? "Cloudy, mostly dry" : "Fair and dry");
+      : s.rain >= 0.1 ? "Light drizzle only" : (s.code >= 2 ? "Cloudy, dry" : "Fair and dry");
     const parts = [`${s.rain.toFixed(1)} mm rain`, `${Math.round(s.prob)}% chance`];
-    if (temp != null) parts.push(`${temp}°C`);
-    parts.push(pm != null ? `PM2.5 ${Math.round(pm)} µg/m³` : "no haze data");
-    return { weather, title, sub: parts.join(" · "), ico: weather === "Haze" ? "🌫️" : codeIcon(s.code) };
+    if (s.temp != null) parts.push(`${Math.round(s.temp)}°C`);
+    parts.push(s.pm != null ? `PM2.5 ${Math.round(s.pm)} µg/m³` : "no haze data");
+    return { weather, title, sub: parts.join(" · "), ico: weather === "Haze" ? "🌫️" : codeIcon(s.code), rain: s.rain };
   }
 
   /* ------------------------------------------------------------ scenario */
-  function scenarioFor(iso, opts = {}) {
-    const meal = state.meal;
+  function scenarioFor(iso, min = state.time, opts = {}) {
+    const period = periodOf(min);
+    const hour = Math.floor(min / 60);
     const cal = calendarFor(iso);
-    const wx = weatherFor(iso, meal);
-    if (!state.live && !opts.forceLive) {
-      return { date: iso, day: opts.day || state.day, meal, calendar: state.calendar, weather: state.weather,
-               shortBreak: state.shortBreak, src: { cal: "manual", wx: "manual" }, cal, wx };
+    const wx = weatherAt(iso, hour);
+    const base = { date: iso, min, hour, period, meal: period.meal, shortBreak: state.shortBreak, cal, wx };
+    if (!state.live) {
+      return { ...base, day: opts.day || state.day, calendar: state.calendar, weather: state.weather, src: { cal: "manual", wx: "manual" } };
     }
     return {
-      date: iso, day: CFG.days[dowIdx(iso)], meal, shortBreak: state.shortBreak,
+      ...base, day: CFG.days[dowIdx(iso)],
       calendar: state.ovCal ? state.calendar : cal.calendar,
       weather: state.ovWx ? state.weather : (wx ? wx.weather : "Clear"),
       src: { cal: state.ovCal ? "manual" : "live", wx: state.ovWx ? "manual" : (wx ? "live" : "fallback") },
-      cal, wx,
     };
   }
 
@@ -197,10 +220,49 @@
     return { tier: TREE.classes[best], confidence: probs[best], path, leafSamples: nodes[i].samples };
   }
 
+  const tierAt = (iso, min) => { const sc = scenarioFor(iso, min); return { sc, dem: demand(sc), pred: predict(encode(sc)) }; };
+
   function assumptions() {
     const v = (id, d) => { const x = parseFloat($(id).value); return isFinite(x) && x >= 0 ? x : d; };
     return { kg: v("a-kg", 0.35), rm: v("a-rm", 4), kwh: v("a-kwh", 0.4), warm: v("a-warm", 1.5), hrs: v("a-hrs", 2), co2: v("a-co2", 0.58) };
   }
+
+  /* ------------------------------------------------- forecast change alerts */
+  function snapshot() {
+    if (!state.live) return null;
+    const out = {};
+    for (let h = OPEN / 60; h <= CLOSE / 60; h++) {
+      const wx = weatherAt(state.date, h);
+      out[h] = { wx: wx ? wx.weather : null, tier: tierAt(state.date, h * 60).pred.tier };
+    }
+    return out;
+  }
+
+  let toastTimer;
+  function toast(title, body) {
+    const t = $("toast");
+    t.innerHTML = `<strong>${title}</strong>${body}`;
+    t.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => (t.hidden = true), 8000);
+  }
+
+  function announceChanges(before, after) {
+    if (!before || !after) return;
+    const changed = Object.keys(after).map(Number).filter((h) => before[h] && before[h].wx && after[h].wx && before[h].wx !== after[h].wx);
+    if (!changed.length) return;
+    const selH = Math.floor(state.time / 60);
+    const h = changed.includes(selH) ? selH : changed[0];
+    const a = after[h], b = before[h];
+    const what = a.wx === "Heavy rain" ? "rain now expected" : a.wx === "Haze" ? "haze now expected"
+      : b.wx === "Heavy rain" ? "rain no longer expected" : "haze has cleared";
+    const dir = RANK[a.tier] > RANK[b.tier] ? `risk raised to ${a.tier}` : RANK[a.tier] < RANK[b.tier] ? `risk lowered to ${a.tier}` : `risk stays ${a.tier}`;
+    const more = changed.length > 1 ? ` (+${changed.length - 1} other hour${changed.length > 2 ? "s" : ""} changed)` : "";
+    toast("Forecast changed", `${what[0].toUpperCase() + what.slice(1)} at ${fmtHour(h)} → ${dir}${more}.`);
+    changedHours = new Set(changed);
+    setTimeout(() => { changedHours = new Set(); }, 3000);
+  }
+  let changedHours = new Set();
 
   /* ------------------------------------------------------------ controls */
   function buildControls() {
@@ -221,15 +283,38 @@
       b.onclick = () => { state[key] = o; if (ov && state.live) state[ov] = true; render(); };
       $(el).appendChild(b);
     });
-    seg("meal-seg", "meal", CFG.meals);
     seg("cal-seg", "calendar", CFG.calendar, "ovCal");
     seg("wx-seg", "weather", CFG.weather, "ovWx");
 
+    // time scrubber: meal-period bands, hour icons, ticks
+    const span = CLOSE - OPEN;
+    const pos = (min) => ((min - OPEN) / span) * 100;
+    $("bands").innerHTML = PERIODS.map((p) => {
+      const end = Math.min(p.end, CLOSE);
+      return `<div class="band${p.gap ? " gap" : ""}" data-key="${p.key}" style="--bc:${p.color};left:${pos(p.start)}%;width:calc(${pos(end) - pos(p.start)}% - 2px)" title="${p.name} ${fmtTime(p.start)} – ${fmtTime(end)}">${p.gap ? "" : `<span>${p.icon}</span><span class="bl">${p.name}</span>`}</div>`;
+    }).join("");
+    $("bands").querySelectorAll(".band").forEach((el) => el.onclick = () => {
+      const p = PERIODS.find((x) => x.key === el.dataset.key);
+      setTime(p.key === "lunch" ? 750 : p.key === "dinner" ? 1110 : p.start);
+    });
+    let icons = "", ticks = "";
+    for (let h = OPEN / 60, k = 0; h <= CLOSE / 60; h++, k++) {
+      icons += `<span class="hicon${k % 2 ? " odd" : ""}" data-h="${h}" style="left:${pos(h * 60)}%"></span>`;
+      if (k % 2 === 0) ticks += `<span class="tick${k % 4 ? " odd" : ""}" style="left:${pos(h * 60)}%">${fmtHour(h).replace(" ", "").toLowerCase()}</span>`;
+    }
+    $("hour-icons").innerHTML = icons;
+    $("hour-ticks").innerHTML = ticks;
+    $("hour-icons").querySelectorAll(".hicon").forEach((el) => el.onclick = () => setTime(+el.dataset.h * 60));
+
+    $("time").oninput = (e) => setTime(+e.target.value);
+    $("now-btn").onclick = () => { state.date = todayKL(); state.time = nowSlot(); state.follow = true; state.ovCal = state.ovWx = false; render(); };
+    $("refresh-btn").onclick = () => { $("updated").textContent = "Refreshing…"; refreshWeather("manual"); };
+
     $("date").value = state.date;
-    $("date").onchange = (e) => { if (e.target.value) { state.date = e.target.value; state.ovCal = state.ovWx = false; render(); } };
+    $("date").onchange = (e) => { if (e.target.value) { state.date = e.target.value; state.follow = false; state.ovCal = state.ovWx = false; render(); } };
     $("today-btn").onclick = () => { state.date = todayKL(); state.ovCal = state.ovWx = false; render(); };
     $("live").onchange = (e) => {
-      if (!e.target.checked) { // freeze current live values as the manual starting point
+      if (!e.target.checked) {
         const sc = scenarioFor(state.date);
         Object.assign(state, { day: sc.day, calendar: sc.calendar, weather: sc.weather });
       }
@@ -244,9 +329,15 @@
     $("cafe").onchange = render;
   }
 
+  function setTime(min) {
+    state.time = Math.min(CLOSE, Math.max(OPEN, min));
+    state.follow = false;
+    render();
+  }
+
   function badge(el, src) {
     const b = $(el);
-    if (!state.live) { b.textContent = ""; b.className = "badge"; return; }
+    if (!state.live || !src) { b.textContent = ""; b.className = "badge"; return; }
     const map = { live: ["LIVE", "live"], manual: ["MANUAL", "manual"], fallback: ["NO FORECAST", "manual"] };
     const [t, c] = map[src] || ["", ""];
     b.textContent = t; b.className = "badge " + c;
@@ -254,7 +345,7 @@
 
   function syncControls(sc) {
     document.querySelectorAll("#day-chips .chip").forEach((b) => b.classList.toggle("active", b.dataset.val === sc.day));
-    [["meal-seg", sc.meal], ["cal-seg", sc.calendar], ["wx-seg", sc.weather]].forEach(([el, v]) =>
+    [["cal-seg", sc.calendar], ["wx-seg", sc.weather]].forEach(([el, v]) =>
       document.querySelectorAll(`#${el} .seg-btn`).forEach((b) => b.classList.toggle("active", b.dataset.val === v)));
     $("date").value = state.date;
     $("date").disabled = !state.live;
@@ -269,7 +360,7 @@
   }
 
   /* -------------------------------------------------------------- render */
-  let slotChart;
+  let slotChart, dayChart;
 
   function render() {
     const sc = scenarioFor(state.date);
@@ -279,16 +370,21 @@
     document.documentElement.style.setProperty("--risk", COLORS[tier]);
     document.documentElement.style.setProperty("--risk-soft", SOFT[tier]);
 
+    const rec = Math.round(state.batch * dem.value);
+    renderTime(sc, rec);
     renderLive(sc);
 
     const when = state.live ? `${DAY_FULL[sc.day]} ${shortDate(sc.date)}` : DAY_FULL[sc.day];
-    $("scenario-title").textContent = `${$("cafe").value} · ${when} · ${sc.meal}`;
+    $("scenario-title").textContent = `${$("cafe").value} · ${when} · ${sc.period.name} (${fmtTime(sc.period.start)} – ${fmtTime(Math.min(sc.period.end, CLOSE))})`;
     $("risk-tier").textContent = tier;
     $("risk-msg").textContent = {
       Low: "Customer numbers should be close to a normal day. Cook as usual and keep the normal warmer schedule.",
       Medium: "Expect noticeably fewer customers. Cook a smaller first batch and top up only if it sells.",
       High: "Expect far fewer customers than usual. Cook a small first batch and cook more only when needed.",
     }[tier];
+    const pn = $("period-note");
+    pn.hidden = sc.period.surveyed;
+    pn.textContent = `⚠ ${sc.period.name} wasn't covered by the student survey, so this uses dinner-style rules. Treat it as a rough guide.`;
     $("demand-pct").textContent = pct;
     const arc = 157.1;
     $("gauge-fg").style.strokeDasharray = arc;
@@ -296,13 +392,12 @@
     $("conf-bar").style.width = Math.round(pred.confidence * 100) + "%";
     $("conf-pct").textContent = Math.round(pred.confidence * 100) + "%";
 
-    const rec = Math.round(state.batch * dem.value);
     const lo = Math.round(rec * 0.9), hi = Math.min(state.batch, Math.round(rec * 1.1));
     const saved = state.batch - rec;
     const warmerKwh = tier === "High" ? A.warm * A.hrs : tier === "Medium" ? A.warm * A.hrs * 0.5 : 0;
     const kwh = saved * A.kwh + warmerKwh;
     $("kpi-rec").textContent = fmt(rec);
-    $("kpi-range").textContent = `portions · range ${fmt(lo)}–${fmt(hi)}`;
+    $("kpi-range").textContent = `portions for ${sc.period.name.toLowerCase()} · range ${fmt(lo)}–${fmt(hi)}`;
     $("kpi-saved").textContent = fmt(saved);
     $("kpi-kg").textContent = fmt(saved * A.kg, 1) + " kg";
     $("kpi-rm").textContent = `≈ RM ${fmt(saved * A.rm)} in ingredients`;
@@ -310,15 +405,127 @@
     $("kpi-co2").textContent = `≈ ${fmt(kwh * A.co2, 1)} kg CO₂ avoided`;
 
     renderPlan(sc, tier, rec);
+    renderHourNote(sc);
     renderWhy(dem, pred);
     renderWeek();
     renderSlots(sc, dem, tier);
     renderTips(sc);
   }
 
+  function renderTime(sc, rec) {
+    const p = sc.period;
+    $("time").value = state.time;
+    $("time").style.setProperty("--fill", ((state.time - OPEN) / (CLOSE - OPEN)) * 100 + "%");
+    $("time").setAttribute("aria-valuetext", `${fmtTime(state.time)}, ${p.name}`);
+    $("time-label").textContent = fmtTime(state.time);
+    const chip = $("period-chip");
+    chip.textContent = `${p.icon} ${p.name} · ${fmtTime(p.start)} – ${fmtTime(Math.min(p.end, CLOSE))}`;
+    chip.style.setProperty("--pc", p.color);
+    chip.style.setProperty("--pc-soft", p.color + "22");
+    $("past-tag").hidden = !(state.live && isPast(state.date, state.time));
+    document.querySelectorAll(".band").forEach((b) => b.classList.toggle("active", b.dataset.key === p.key));
+
+    const selH = sc.hour;
+    document.querySelectorAll(".hicon").forEach((el) => {
+      const h = +el.dataset.h, wx = weatherAt(state.date, h);
+      el.textContent = wx ? wx.ico : "·";
+      el.title = wx ? `${fmtHour(h)}: ${wx.title} (${wx.sub})` : `${fmtHour(h)}: no forecast`;
+      el.classList.toggle("na", !wx);
+      el.classList.toggle("past", !!wx && isPast(state.date, h * 60 + 30));
+      el.classList.toggle("sel", h === selH);
+      el.classList.toggle("changed", changedHours.has(h));
+    });
+
+    // which half-hour slot of the meal are we in?
+    if (p.key === "lunch") {
+      const bucket = state.time < 720 ? "Before 12:00 pm" : state.time < 780 ? "12:00 to 1:00 pm" : state.time < 840 ? "1:00 to 2:00 pm" : "After 2:00 pm";
+      const share = S.lunch_time[bucket].pct / 2;
+      $("slot-line").innerHTML = `<strong>${fmtTime(state.time)} – ${fmtTime(state.time + STEP)}</strong>: about <strong>${fmt(share, 1)}%</strong> of lunch customers come in this half-hour (≈ <strong>${Math.round(rec * share / 100)}</strong> of ${rec} expected portions, survey Q5).`;
+    } else if (p.key === "dinner") {
+      $("slot-line").innerHTML = `<strong>Dinner</strong>: the survey didn't ask about dinner timing, so this is the forecast for the whole service.`;
+    } else if (p.gap) {
+      $("slot-line").innerHTML = `<strong>Prep window</strong> before lunch. Use it to cook the first lunch batch.`;
+    } else {
+      $("slot-line").innerHTML = `<strong>${p.name}</strong> is a smaller service the survey didn't cover. ${fmt(S.meals[p.key === "tea" ? "Tea and snacks" : p.name] ? S.meals[p.key === "tea" ? "Tea and snacks" : p.name].pct : 0)}% of students said they eat ${p.name.toLowerCase()} at the cafeteria.`;
+    }
+
+    // status line
+    const upd = $("updated");
+    if (WX.status === "loading") upd.textContent = "Connecting…";
+    else if (WX.status === "error") upd.textContent = "Weather offline";
+    else if (WX.status === "stale") upd.textContent = `Weather offline · last updated ${clock(WX.updated)}`;
+    else {
+      const mins = Math.floor((Date.now() - WX.updated) / 60000);
+      upd.textContent = `Updated ${mins < 1 ? "just now" : mins === 1 ? "1 min ago" : mins + " min ago"} · next in ${Math.max(0, Math.ceil((REFRESH_MS - (Date.now() - WX.updated)) / 60000))} min`;
+    }
+
+    // note under the day chart
+    const has = !!WX.hours[state.date];
+    $("time-note").textContent = has
+      ? `Bars = forecast rain (mm) each hour · line = expected demand at that hour · ${state.live ? "updates automatically" : "manual mode: line uses your chosen weather"}`
+      : WX.status === "loading" ? "Loading the hourly forecast…"
+      : WX.last ? `No hourly forecast for this date (forecast covers ${shortDate(WX.first)} – ${shortDate(WX.last)}), so the weather is assumed clear.`
+      : "Hourly forecast unavailable. Set the weather by hand.";
+    renderDayChart();
+  }
+
+  // vertical marker for the selected hour on the day chart
+  const markerPlugin = {
+    id: "marker",
+    afterDatasetsDraw(chart) {
+      const i = chart.$sel;
+      if (i == null) return;
+      const x = chart.scales.x.getPixelForValue(i);
+      const { top, bottom } = chart.chartArea;
+      const c = chart.ctx;
+      c.save();
+      c.strokeStyle = "rgba(255,255,255,.7)"; c.setLineDash([4, 4]); c.lineWidth = 1;
+      c.beginPath(); c.moveTo(x, top); c.lineTo(x, bottom); c.stroke();
+      c.restore();
+    },
+  };
+
+  function renderDayChart() {
+    const hours = [];
+    for (let h = OPEN / 60; h <= CLOSE / 60; h++) hours.push(h);
+    const labels = hours.map((h) => fmtHour(h).replace(" ", "").toLowerCase());
+    const rain = hours.map((h) => { const s = WX.hours[state.date] && WX.hours[state.date][h]; return s ? +s.rain.toFixed(1) : 0; });
+    const pts = hours.map((h) => tierAt(state.date, h * 60));
+    const dem = pts.map((p) => Math.round(p.dem.value * 100));
+    const ptColors = pts.map((p) => COLORS[p.pred.tier]);
+    const sel = Math.floor(state.time / 60) - OPEN / 60;
+    const data = {
+      labels,
+      datasets: [
+        { type: "line", label: "Expected demand %", data: dem, yAxisID: "y", borderColor: "rgba(226,232,240,.55)", borderWidth: 2,
+          pointBackgroundColor: ptColors, pointBorderColor: ptColors, pointRadius: hours.map((_, i) => (i === sel ? 6 : 3)), tension: .3, order: 0 },
+        { type: "bar", label: "Rain (mm)", data: rain, yAxisID: "y1", borderRadius: 4, maxBarThickness: 18, order: 1,
+          backgroundColor: hours.map((_, i) => (i === sel ? "rgba(56,189,248,.95)" : "rgba(56,189,248,.45)")) },
+      ],
+    };
+    if (dayChart) { dayChart.data = data; dayChart.$sel = sel; dayChart.update("none"); return; }
+    dayChart = new Chart($("day-chart"), {
+      data,
+      plugins: [markerPlugin],
+      options: {
+        responsive: true, maintainAspectRatio: false, animation: false,
+        interaction: { mode: "index", intersect: false },
+        onClick: (_, els) => { if (els.length) setTime((els[0].index + OPEN / 60) * 60); },
+        plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => c.dataset.yAxisID === "y" ? `Expected demand ${c.parsed.y}% (${pts[c.dataIndex].pred.tier} risk)` : `Rain ${c.parsed.y} mm`} } },
+        scales: {
+          x: { grid: { display: false }, ticks: { maxRotation: 0, autoSkipPadding: 8, font: { size: 10.5 } } },
+          y: { min: 0, max: 110, position: "left", grid: { color: GRID }, ticks: { stepSize: 50, callback: (v) => (v <= 100 ? v + "%" : "") } },
+          y1: { min: 0, suggestedMax: 5, position: "right", grid: { display: false }, ticks: { callback: (v) => v + " mm", maxTicksLimit: 4 } },
+        },
+      },
+    });
+    dayChart.$sel = sel;
+    dayChart.update("none");
+  }
+
   function renderLive(sc) {
     const applied = state.live ? "" : " · not applied (manual mode)";
-    $("wx-when").textContent = `${sc.meal.toLowerCase()} window · ${shortDate(sc.date)}`;
+    $("wx-when").textContent = `${fmtTime(sc.hour * 60).replace(":00", "")} · ${shortDate(sc.date)}`;
     if (sc.wx) {
       $("wx-ico").textContent = sc.wx.ico;
       $("wx-title").textContent = sc.wx.title + (sc.src.wx === "manual" ? " (overridden)" : "");
@@ -333,30 +540,29 @@
     $("cal-title").textContent = sc.cal.title + (sc.src.cal === "manual" ? " (overridden)" : "");
     $("cal-sub").textContent = `${sc.cal.sub}${applied}`;
 
-    const pw = $("pill-weather");
     const wxMap = {
       loading: ["", "Weather: connecting…"], ok: ["ok", "Live weather · Open-Meteo"],
       partial: ["warn", "Live weather · no haze data"], error: ["err", "Weather offline · manual"],
+      stale: ["warn", `Weather offline · last ${WX.updated ? clock(WX.updated) : ""}`],
     };
     const [cls, txt] = wxMap[WX.status];
-    pw.className = "pill " + cls;
-    pw.innerHTML = `<span class="dot"></span>${txt}`;
-    const pc = $("pill-cal");
-    pc.className = "pill " + (sc.cal.estimated ? "warn" : "ok");
-    pc.innerHTML = `<span class="dot"></span>${sc.cal.estimated ? "UTP calendar · estimated" : "UTP academic calendar"}`;
+    $("pill-weather").className = "pill " + cls;
+    $("pill-weather").innerHTML = `<span class="dot"></span>${txt}`;
+    $("pill-cal").className = "pill ok";
+    $("pill-cal").innerHTML = `<span class="dot"></span>UTP academic calendar`;
   }
 
   function renderPlan(sc, tier, rec) {
-    const lunch = sc.meal === "Lunch";
-    const t = lunch ? { prep: "By 11:30 AM", peak: "12:30 PM check", late: "After 2:30 PM" }
-                    : { prep: "By 5:30 PM", peak: "7:30 PM check", late: "After 9:00 PM" };
+    const p = sc.period, lunch = p.key === "lunch";
+    const end = Math.min(p.end, CLOSE);
+    const t = { prep: `By ${fmtTime(p.start - 30)}`, peak: `${fmtTime(Math.min(p.start + 90, end - 30))} check`, late: `After ${fmtTime(end - 30)}` };
     const first = { Low: rec, Medium: Math.round(rec * 0.8), High: Math.round(rec * 0.6) }[tier];
     const topUp = Math.max(rec - first, 0);
     const steps = {
       Low: [
-        [t.prep, `Cook the full first batch of <strong>${first} portions</strong>.`],
-        [t.peak, lunch ? `Expect a normal rush: ${S.lunch_time["12:00 to 1:00 pm"].pct}% of lunch customers arrive 12–1 PM.` : "Expect a normal dinner rush."],
-        [t.late, lunch ? `Keep the warmers on, because ${S.lunch_time["After 2:00 pm"].pct}% of students eat lunch after 2 PM. Switch to low heat after 3:00 PM.` : "Turn the warmers down to low once the dinner rush ends."],
+        [t.prep, `Cook the full first batch of <strong>${first} portions</strong> for ${p.name.toLowerCase()}.`],
+        [t.peak, lunch ? `Expect a normal rush: ${S.lunch_time["12:00 to 1:00 pm"].pct}% of lunch customers arrive 12–1 PM.` : `Expect a normal ${p.name.toLowerCase()} crowd.`],
+        [t.late, lunch ? `Keep the warmers on, because ${S.lunch_time["After 2:00 pm"].pct}% of students eat lunch after 2 PM. Switch to low heat after 3:00 PM.` : "Turn the warmers down to low once the rush ends."],
       ],
       Medium: [
         [t.prep, `Cook <strong>${first} portions</strong> first. Prep the ingredients for another ${topUp}, but don't cook them yet.`],
@@ -370,6 +576,29 @@
       ],
     }[tier];
     $("plan").innerHTML = steps.map(([time, txt]) => `<li><span class="time">${time}</span>${txt}</li>`).join("");
+  }
+
+  // "This hour" note: rain / haze inside the current meal period
+  function renderHourNote(sc) {
+    const el = $("hour-note"), p = sc.period;
+    if (!WX.hours[state.date] || !state.live || state.ovWx) { el.hidden = true; return; }
+    const startH = Math.floor(p.start / 60), endH = Math.ceil(Math.min(p.end, CLOSE) / 60) - 1;
+    const rainy = [];
+    for (let h = startH; h <= endH; h++) { const w = weatherAt(state.date, h); if (w && w.weather === "Heavy rain") rainy.push(h); }
+    const ranges = [];
+    rainy.forEach((h) => { const r = ranges[ranges.length - 1]; if (r && r[1] === h - 1) r[1] = h; else ranges.push([h, h]); });
+    const txt = ranges.map(([a, b]) => `${fmtHour(a)}–${fmtHour(b + 1)}`).join(", ");
+    if (sc.weather === "Heavy rain") {
+      const cur = ranges.find(([a, b]) => a <= sc.hour && sc.hour <= b);
+      el.innerHTML = `🌧️ <strong>Rain from ${cur ? `${fmtHour(cur[0])}–${fmtHour(cur[1] + 1)}` : fmtHour(sc.hour)}</strong>: hold the next top-up until it clears and keep food covered on low heat.`;
+    } else if (ranges.length) {
+      el.innerHTML = `🌧️ <strong>Rain expected ${txt}</strong> during ${p.name.toLowerCase()}. Cook your top-up before the rain starts, or wait until it clears.`;
+    } else if (sc.weather === "Haze") {
+      el.innerHTML = `🌫️ <strong>Hazy at ${fmtHour(sc.hour)}</strong>. Expect more takeaway orders than dine-in.`;
+    } else {
+      el.innerHTML = `☀️ <strong>No heavy rain expected</strong> during ${p.name.toLowerCase()} (${fmtTime(p.start)} – ${fmtTime(Math.min(p.end, CLOSE))}).`;
+    }
+    el.hidden = false;
   }
 
   function renderWhy(dem, pred) {
@@ -391,40 +620,41 @@
     const start = state.live ? state.date : addDays(state.date, -dowIdx(state.date));
     for (let k = 0; k < 7; k++) {
       const iso = addDays(start, k);
-      const sc = state.live ? scenarioFor(iso) : scenarioFor(iso, { day: CFG.days[k] });
+      const sc = scenarioFor(iso, state.time, { day: CFG.days[k] });
       const dm = demand(sc), p = predict(encode(sc));
       const selected = state.live ? iso === state.date : sc.day === state.day;
       const b = document.createElement("button");
       b.type = "button";
       b.className = "wday" + (selected ? " sel" : "");
       b.style.setProperty("--tc", COLORS[p.tier]);
-      const wico = ICONS[sc.weather];
       b.innerHTML = `<div class="d">${sc.day}</div>${state.live ? `<div class="dt">${shortDate(iso)}</div>` : ""}
-        <div class="wi" title="${sc.weather} · ${sc.calendar}">${sc.calendar === "Holiday / break" ? "🏖️" : wico}</div>
+        <div class="wi" title="${sc.weather} · ${sc.calendar}">${sc.calendar === "Holiday / break" ? "🏖️" : sc.wx && state.live && !state.ovWx ? sc.wx.ico : ICONS[sc.weather]}</div>
         <div class="p">${Math.round(dm.value * 100)}%</div><span class="t t-${p.tier}">${p.tier}</span>`;
-      b.onclick = () => { if (state.live) { state.date = iso; state.ovCal = state.ovWx = false; } else state.day = sc.day; render(); };
+      b.onclick = () => { if (state.live) { state.date = iso; state.follow = false; state.ovCal = state.ovWx = false; } else state.day = sc.day; render(); };
       el.appendChild(b);
     }
-    $("week-note").textContent = state.live ? "Live forecast & calendar · click a day" : `${state.calendar} · ${state.weather} · click a day`;
+    $("week-note").textContent = `At ${fmtTime(state.time)} each day · ${state.live ? "live forecast & calendar" : `${state.calendar} · ${state.weather}`} · click a day`;
   }
 
   function renderSlots(sc, dem, tier) {
-    let labels, normal, scen;
-    if (sc.meal === "Lunch") {
+    let labels, normal, scen, active = -1;
+    if (sc.meal === "Lunch" && sc.period.key === "lunch") {
       const keys = ["Before 12:00 pm", "12:00 to 1:00 pm", "1:00 to 2:00 pm", "After 2:00 pm"];
-      labels = ["Before 12 PM", "12–1 PM", "1–2 PM", "After 2 PM"];
+      labels = ["11–12", "12–1 PM", "1–2 PM", "2–3 PM"];
       const shares = keys.map((k) => S.lunch_time[k].pct / 100);
       normal = shares.map((s) => Math.round(state.batch * s));
       scen = shares.map((s) => Math.round(state.batch * dem.value * s));
-      $("slot-note").textContent = "Lunch timing from survey Q5";
+      active = state.time < 720 ? 0 : state.time < 780 ? 1 : state.time < 840 ? 2 : 3;
+      $("slot-note").textContent = "Lunch timing from survey Q5 · highlighted = selected time";
     } else {
-      labels = ["Whole dinner service"];
+      labels = [`Whole ${sc.period.name.toLowerCase()} service`];
       normal = [state.batch]; scen = [Math.round(state.batch * dem.value)];
-      $("slot-note").textContent = "Dinner timing wasn't surveyed, so only the total is shown";
+      $("slot-note").textContent = `${sc.period.name} timing wasn't surveyed, so only the total is shown`;
     }
     const data = { labels, datasets: [
       { label: "Normal weekday", data: normal, backgroundColor: "#2a3547", borderRadius: 8 },
-      { label: "This service", data: scen, backgroundColor: COLORS[tier], borderRadius: 8 },
+      { label: "This service", data: scen, borderRadius: 8,
+        backgroundColor: scen.map((_, i) => (active === -1 || i === active ? COLORS[tier] : COLORS[tier] + "66")) },
     ] };
     if (slotChart) { slotChart.data = data; slotChart.update(); return; }
     slotChart = new Chart($("slot-chart"), { type: "bar", data, options: baseOpts({ y: { title: { display: true, text: "Expected customers" } } }) });
@@ -565,7 +795,8 @@
       D.test_scenarios.map((t, i) => `<tr data-i="${i}"><td><strong>${t.scenario}</strong></td><td>${t.meal}</td><td>${t.calendar}</td><td>${t.weather}${t.short_break ? " · short breaks" : ""}</td><td class="num">${t.expected_demand_pct}%</td><td><span class="t t-${t.predicted_risk}">${t.predicted_risk}</span></td><td class="num">${t.confidence_pct}%</td><td class="num">${t.recommended_batch_if_usual_100}</td></tr>`).join("") + "</tbody>";
     tb.querySelectorAll("tbody tr").forEach((tr) => tr.onclick = () => {
       const t = D.test_scenarios[+tr.dataset.i];
-      Object.assign(state, { live: false, ovCal: false, ovWx: false, day: t.day, meal: t.meal, calendar: t.calendar, weather: t.weather, shortBreak: t.short_break, batch: 100 });
+      Object.assign(state, { live: false, follow: false, ovCal: false, ovWx: false, day: t.day, time: t.meal === "Lunch" ? 750 : 1110,
+        calendar: t.calendar, weather: t.weather, shortBreak: t.short_break, batch: 100 });
       $("live").checked = false;
       showTab("predict"); render();
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -595,12 +826,25 @@
     Chart.defaults.plugins.tooltip.borderWidth = 1;
     Chart.defaults.plugins.tooltip.padding = 10;
   } else {
-    window.Chart = function () { return { update() {} }; }; // offline: skip charts
+    window.Chart = function () { return { update() {}, data: {} }; }; // offline: skip charts
   }
   document.querySelectorAll(".tab").forEach((t) => (t.onclick = () => showTab(t.dataset.tab)));
   buildControls();
   fillStats();
   buildModel(); // assumption inputs live in the model tab and are read by render()
   render();
-  loadWeather().catch(() => { WX.status = "error"; }).finally(render);
+  refreshWeather("initial");
+  setInterval(() => refreshWeather("auto"), REFRESH_MS);
+  // every 30 s: keep "updated x min ago" fresh and, while following the clock, move the slider with time
+  setInterval(() => {
+    if (state.live && state.follow) {
+      const k = klParts();
+      if (k.iso !== state.date) state.date = k.iso;
+      state.time = nowSlot();
+    }
+    render();
+  }, 30000);
+
+  // small hook for demos / testing in the browser console
+  window.BatchAdvisor = { refresh: () => refreshWeather("manual"), state, weather: WX };
 })();

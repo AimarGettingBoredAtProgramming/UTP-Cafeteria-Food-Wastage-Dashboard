@@ -74,9 +74,6 @@
           <span class="field-label">Day <span class="badge" id="b-day"></span></span>
           <div class="chips" id="day-chips"></div>
 
-          <span class="field-label">Meal service</span>
-          <div class="segmented" id="meal-seg"></div>
-
           <span class="field-label">Academic calendar <span class="badge" id="b-cal"></span></span>
           <div class="segmented" id="cal-seg"></div>
 
@@ -98,6 +95,33 @@
         </aside>
 
         <div class="results">
+          <div class="card time-card">
+            <div class="time-head">
+              <div>
+                <span class="live-lbl">Time of service</span>
+                <div class="time-big">
+                  <span id="time-label">12:30 PM</span>
+                  <span class="period-chip" id="period-chip">🍛 Lunch · 11:00 AM – 3:00 PM</span>
+                  <span class="past-tag" id="past-tag" hidden>past</span>
+                </div>
+              </div>
+              <div class="time-actions">
+                <span class="updated" id="updated">Connecting…</span>
+                <button type="button" class="ghost-btn" id="refresh-btn" title="Fetch the latest forecast now">↻ Refresh</button>
+                <button type="button" class="ghost-btn" id="now-btn" title="Jump to the current time">● Now</button>
+              </div>
+            </div>
+            <div class="scrubber">
+              <div class="bands" id="bands"></div>
+              <div class="hour-icons" id="hour-icons"></div>
+              <input type="range" id="time" min="420" max="1380" step="30" value="750" aria-label="Time of day">
+              <div class="hour-ticks" id="hour-ticks"></div>
+            </div>
+            <p class="slot-line" id="slot-line"></p>
+            <div class="chart-box mini"><canvas id="day-chart"></canvas></div>
+            <p class="muted small" id="time-note"></p>
+          </div>
+
           <div class="live-strip">
             <div class="card live-card" id="wx-card">
               <div class="live-ico" id="wx-ico">☀️</div>
@@ -123,6 +147,7 @@
                 <p class="eyebrow" id="scenario-title">–</p>
                 <h2 class="risk-title"><span id="risk-tier">Low</span> surplus-waste risk</h2>
                 <p class="risk-msg" id="risk-msg"></p>
+                <p class="period-note" id="period-note" hidden></p>
                 <div class="confidence">
                   <span>Model confidence</span>
                   <div class="bar"><div id="conf-bar"></div></div>
@@ -167,6 +192,7 @@
             <div class="card">
               <h3>Cooking &amp; energy plan</h3>
               <ol class="plan" id="plan"></ol>
+              <div class="hour-note" id="hour-note" hidden></div>
             </div>
             <div class="card">
               <h3>Why the model says this</h3>
@@ -268,9 +294,10 @@
         <div class="card">
           <h3>Live data rules</h3>
           <ul class="list small">
-            <li><strong>Weather:</strong> the <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> hourly forecast for UTP (4.385° N, 100.979° E), up to 16 days ahead. Meal windows are lunch 11:00–15:00 and dinner 17:00–21:00.</li>
-            <li><strong>Heavy rain:</strong> at least <span id="r-rain">2.5</span> mm of rain in the meal window, or a rain chance of at least <span id="r-prob">75</span>% with 1 mm or more.</li>
-            <li><strong>Haze:</strong> average PM2.5 of at least <span id="r-pm">35</span> µg/m³ in the meal window (Malaysian 24-hour standard), from the Open-Meteo air-quality forecast (about 5 days ahead).</li>
+            <li><strong>Weather:</strong> the <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> hourly forecast for UTP (4.385° N, 100.979° E), up to 16 days ahead. The page fetches it again every 10 minutes, and the prediction uses the weather at the hour you pick on the time slider.</li>
+            <li><strong>Heavy rain:</strong> at least <span id="r-rain">1</span> mm of rain in that hour, or a rain chance of at least <span id="r-prob">75</span>%.</li>
+            <li><strong>Haze:</strong> PM2.5 of at least <span id="r-pm">35</span> µg/m³ in that hour (Malaysian 24-hour standard), from the Open-Meteo air-quality forecast (about 5 days ahead).</li>
+            <li><strong>Meal periods:</strong> breakfast 7:00–10:30, lunch 11:00–15:00, tea 15:00–17:00, dinner 17:00–21:00, supper 21:00–23:00. The survey covered lunch and dinner. Other periods use dinner-style rules and are labelled as not surveyed.</li>
             <li><strong>Calendar:</strong> lecture weeks, study break, exams, semester breaks, orientation, blended-learning and "no physical class on campus" weeks, and public holidays come from <code>docs/data/academic_calendar.js</code>. Orientation and no-class weeks count as <em>Holiday / break</em>, and study break counts as <em>Exam week</em>. <span id="cal-verify"></span></li>
             <li>Beyond the forecast range, or if you're offline, the weather falls back to <em>Clear</em>. You can override any live value by hand.</li>
           </ul>
@@ -308,6 +335,8 @@
       </div>
     </section>
   </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
   <footer class="foot">
     TEB2023 Artificial Intelligence · Group 13 · Universiti Teknologi PETRONAS · SDG 12 &amp; SDG 7 ·

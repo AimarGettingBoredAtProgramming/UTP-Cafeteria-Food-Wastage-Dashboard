@@ -15,11 +15,15 @@ Cafeteria vendors at UTP decide how much to cook from routine and guesswork. Whe
 
 ## The solution
 
-The vendor picks a **date** and **meal** and enters their **usual batch size**. In **live mode** the dashboard fills in the rest automatically:
+The vendor picks a **date** and a **time of day** on a slider, and enters their **usual batch size**. The slider shows coloured meal-period bands (☕ breakfast 7:00–10:30 · 🍛 lunch 11:00–15:00 · 🫖 tea 15:00–17:00 · 🌙 dinner 17:00–21:00 · 🌃 supper 21:00–23:00) and a weather icon for every hour. In **live mode** the dashboard fills in the rest automatically:
 
-- **Weather:** the live [Open-Meteo](https://open-meteo.com/) hourly forecast for UTP (up to 16 days ahead). Heavy rain means at least 2.5 mm in the meal window. Haze means PM2.5 of at least 35 µg/m³, from the Open-Meteo air-quality forecast.
-- **Academic calendar:** UTP teaching weeks, study week, final exams and the semester break, plus Perak public holidays, from [`docs/data/academic_calendar.js`](docs/data/academic_calendar.js).
+- **Hourly weather:** the live [Open-Meteo](https://open-meteo.com/) forecast for UTP, for the exact hour you pick, up to 16 days ahead. Heavy rain means at least 1 mm in that hour or a rain chance of at least 75%. Haze means PM2.5 of at least 35 µg/m³ (air-quality forecast, about 5 days ahead).
+- **Auto-refresh:** the forecast is fetched again every 10 minutes (or on demand with ↻ Refresh). The slider follows the clock until you drag it. If a refresh changes the weather for an hour, a "Forecast changed" alert says what changed and how the risk moved.
+- **24-hour chart:** forecast rain per hour (bars) plotted against expected demand at each hour (line, coloured by risk tier).
+- **Academic calendar:** UTP lecture weeks, blended-learning and no-class weeks, study break, exams, semester break and public holidays, from [`docs/data/academic_calendar.js`](docs/data/academic_calendar.js).
 - **Day of week:** taken from the date.
+
+Lunch and dinner use the survey directly. Within lunch, the survey's lunch-time answers (Q5) show how busy each half-hour is. Breakfast, tea and supper weren't surveyed, so they use dinner-style rules and are labelled that way.
 
 Any live value can be overridden by hand, or live mode can be switched off to test what-if scenarios. The dashboard returns:
 
@@ -31,7 +35,7 @@ Any live value can be overridden by hand, or live mode can be switched off to te
 | Cooking & energy plan | 24 portions first → small top-ups → switch off unused warmers after 2:30 PM |
 | Estimated savings | 80 portions · 28 kg food · ≈ 35 kWh |
 | Explanation | Survey factors applied + the decision-tree path |
-| Next 7 days | Live forecast + calendar risk tier for each upcoming day |
+| Next 7 days | Live forecast + calendar risk tier for each upcoming day, at the selected time |
 
 The dashboard has three tabs: **Daily advisor**, **Survey insights** (all survey charts) and **AI model & method** (accuracy, confusion matrix, feature importance, test scenarios, assumptions, limitations).
 
