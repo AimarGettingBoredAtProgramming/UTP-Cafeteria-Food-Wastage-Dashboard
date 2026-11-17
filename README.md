@@ -73,6 +73,26 @@ Live inputs: Open-Meteo weather + air quality, UTP academic calendar, Perak holi
 
    On the dashboard, the **Fuzzy logic view** card animates live: membership curves with the current values, the rules firing and their strengths, and the aggregated output with its centroid. A toggle chooses whether the batch size comes from **fuzzy logic** (the default) or the **survey formula**. The headline risk tier still comes from the decision tree.
 
+### Engine console (see what the AI is doing)
+
+Click **⚙ Engine** in the header to open a console docked at the bottom of the page. It's a "backend view" that stays open while you use the dashboard:
+
+- **Live trace:** every time you change the date, time, weather or batch, the console logs each step of the prediction:
+  1. **API:** the forecast values for that hour.
+  2. **CAL:** the academic-calendar lookup.
+  3. **RULE:** the crisp weather rule.
+  4. **ENCODE:** the 8-number feature vector.
+  5. **TREE:** each decision-tree node visited, with its samples and Gini impurity, then the leaf's class probabilities.
+  6. **FUZZY:** fuzzification, each rule's firing strength (min), aggregation and the centroid.
+  7. **ADVICE:** the final batch calculation.
+  8. **TIME:** how long each engine took.
+
+  Forecast refreshes and changes are logged too.
+- **Pipeline view:** six stages (data sources → calendar → feature encoding → decision tree → fuzzy engine → advice) light up in order on every run.
+- **▶ Replay training:** regrows the CART decision tree (Gini impurity, max depth 8, min 5 samples per leaf) **in the browser**, on the same 3,780 training days and the same 75/25 split as Python. It streams every split with its impurity gain, then scores the 1,260 test days: **93.8%, identical to the scikit-learn model**.
+
+The dashboard keeps using the exported scikit-learn model. The replay shows *how* that model was learned.
+
 ### Results
 
 - **Test accuracy:** 93.8% on held-out simulated days.

@@ -123,14 +123,20 @@
 
   async function refreshWeather(reason) {
     const before = snapshot();
+    const t0 = performance.now();
+    elog("API", `${reason === "auto" ? "Auto-refresh (10 min)" : reason === "manual" ? "Manual refresh" : "Startup"}: GET <b>api.open-meteo.com/v1/forecast</b> + <b>air-quality-api.open-meteo.com</b> · UTP ${UTP.lat}, ${UTP.lon}`);
     try {
       const r = await fetchWeather();
       Object.assign(WX, { hours: r.hours, first: r.first, last: r.last, updated: Date.now(), status: r.aq ? "ok" : "partial" });
+      const nHours = Object.values(r.hours).reduce((a, d) => a + d.filter(Boolean).length, 0);
+      elog("API", `<span class="g">200 OK</span> · ${nHours} hourly rows (${shortDate(r.first)} – ${shortDate(r.last)}) · PM2.5 ${r.aq ? '<span class="g">ok</span>' : '<span class="y">unavailable</span>'} · ${Math.round(performance.now() - t0)} ms`);
+      ENG.lastSig = ""; // force a fresh trace with the new data
       const el = $("updated");
       el.classList.remove("flash"); void el.offsetWidth; el.classList.add("flash");
       if (reason !== "initial") announceChanges(before, snapshot());
     } catch (e) {
       WX.status = WX.updated ? "stale" : "error";
+      elog("API", `<span class="r">FAILED</span> (${e.message || e}) · ${WX.updated ? "keeping data from " + clock(WX.updated) : "falling back to manual weather"}`);
     }
     render();
   }
@@ -211,13 +217,13 @@
     let i = 0;
     while (nodes[i].left !== -1) {
       const n = nodes[i], x = features[n.feature];
-      path.push({ feature: n.feature, yes: !!x });
+      path.push({ feature: n.feature, yes: !!x, node: i, samples: n.samples, gini: n.gini, threshold: n.threshold });
       i = x > n.threshold ? n.right : n.left;
     }
     const probs = nodes[i].probs;
     let best = 0;
     probs.forEach((p, k) => { if (p > probs[best]) best = k; });
-    return { tier: TREE.classes[best], confidence: probs[best], path, leafSamples: nodes[i].samples };
+    return { tier: TREE.classes[best], confidence: probs[best], path, leafSamples: nodes[i].samples, leaf: i, probs };
   }
 
   /* --------------------------------------------- fuzzy logic (Mamdani) */
@@ -312,6 +318,7 @@
     const dir = RANK[a.tier] > RANK[b.tier] ? `risk raised to ${a.tier}` : RANK[a.tier] < RANK[b.tier] ? `risk lowered to ${a.tier}` : `risk stays ${a.tier}`;
     const more = changed.length > 1 ? ` (+${changed.length - 1} other hour${changed.length > 2 ? "s" : ""} changed)` : "";
     toast("Forecast changed", `${what[0].toUpperCase() + what.slice(1)} at ${fmtHour(h)} → ${dir}${more}.`);
+    elog("API", `<span class="y">Forecast changed</span>: ${what} at ${fmtHour(h)} (${b.wx} → ${a.wx}) → ${dir}${more}`);
     changedHours = new Set(changed);
     setTimeout(() => { changedHours = new Set(); }, 3000);
   }
@@ -468,6 +475,7 @@
     renderFuzzy(fz);
     renderWeek();
     renderSlots(sc, used, tier);
+    engineRun({ sc, dem, fz, pred, used, rec, lo, hi, saved, kwh, tier });
     renderTips(sc);
   }
 
@@ -842,6 +850,211 @@
     $("tips").innerHTML = tips.slice(0, 3).map(([i, t, d]) => `<div class="card tip"><span class="ti">${i}</span><div><strong>${t}</strong>${d}</div></div>`).join("");
   }
 
+  /* ------------------------------------------------------- engine console */
+  // A "backend view": every prediction is traced step by step (data → features → decision tree →
+  // fuzzy engine → advice), and training can be replayed in the browser on the same dataset.
+  const ENG = { open: false, paused: false, lastSig: "", timer: null, runs: 0, training: false };
+  const TAGS = { RUN: "#e6edf7", API: "#38bdf8", CAL: "#a78bfa", INPUT: "#94a3b8", RULE: "#fb923c", ENCODE: "#2dd4bf",
+    TREE: "#34d399", FUZZY: "#fbbf24", ADVICE: "#f472b6", TIME: "#64748b", TRAIN: "#a3e635", SYS: "#64748b" };
+  const stamp = () => { const d = new Date(); return d.toLocaleTimeString("en-GB", { hour12: false }) + "." + String(d.getMilliseconds()).padStart(3, "0"); };
+
+  function elog(tag, html, cls = "") {
+    if (ENG.paused && tag !== "TRAIN" && tag !== "SYS") return;
+    const box = $("eng-log");
+    if (!box) return;
+    const nearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 60;
+    const ln = document.createElement("div");
+    ln.className = `ln new ${cls}`;
+    ln.innerHTML = `<span class="lt">${stamp()}</span><span class="tag" style="--tc:${TAGS[tag] || "#94a3b8"}">${tag}</span><span class="msg">${html}</span>`;
+    box.appendChild(ln);
+    while (box.childElementCount > 600) box.removeChild(box.firstChild);
+    if (nearBottom || cls === "run") box.scrollTop = box.scrollHeight;
+  }
+
+  const f2 = (v) => (Math.round(v * 100) / 100).toFixed(2);
+  const msFmt = (ms) => (ms < 0.1 ? "<0.1 ms" : ms.toFixed(2) + " ms");
+  const fmtFeat = (x) => CFG.features.map((f) => `${f}=${x[f]}`).join(" ");
+
+  // called from render(); debounced and only logs when the inputs actually changed
+  function engineRun(ctx) {
+    const { sc, fz } = ctx;
+    const sig = [sc.date, sc.min, sc.day, sc.calendar, sc.weather, sc.shortBreak, state.batch, state.basis, state.live,
+      f2(fz.x.rain), Math.round(fz.x.air), Math.round(fz.x.day_demand)].join("|");
+    if (sig === ENG.lastSig) return;
+    clearTimeout(ENG.timer);
+    ENG.timer = setTimeout(() => { ENG.lastSig = sig; trace(ctx); }, 220);
+  }
+
+  function trace({ sc, dem, fz, pred, used, rec, lo, hi, saved, kwh, tier }) {
+    ENG.runs++;
+    const p = sc.period;
+    // re-time the two engines for the trace
+    let t = performance.now(); predict(encode(sc)); const tTree = performance.now() - t;
+    t = performance.now(); fuzzyInfer(fz.x); const tFz = performance.now() - t;
+
+    elog("RUN", `── Run #${ENG.runs} · ${DAY_FULL[sc.day]} ${shortDate(sc.date)} · ${fmtTime(sc.min)} · ${p.name} (${fmtTime(p.start)}–${fmtTime(Math.min(p.end, CLOSE))}) · ${state.live ? "LIVE mode" : "MANUAL mode"} ──`, "run");
+    elog("INPUT", `cafeteria=<b>${$("cafe").value}</b> usual_batch=<b>${state.batch}</b> short_breaks=<b>${state.shortBreak ? "yes" : "no"}</b> model_meal=<b>${sc.meal}</b>${p.surveyed ? "" : ' <span class="y">(period not surveyed → dinner-style rules)</span>'}`);
+
+    const raw = WX.hours[sc.date] && WX.hours[sc.date][sc.hour];
+    if (raw) elog("API", `forecast @ ${fmtHour(sc.hour)}: rain <b>${raw.rain.toFixed(1)} mm</b>, chance <b>${Math.round(raw.prob)}%</b>, code ${raw.code}, temp ${raw.temp != null ? Math.round(raw.temp) + "°C" : "–"}, PM2.5 <b>${raw.pm != null ? Math.round(raw.pm) : "n/a"}</b>${WX.updated ? ` · data from ${clock(WX.updated)}` : ""}`);
+    else elog("API", `<span class="y">no hourly forecast for ${shortDate(sc.date)} ${fmtHour(sc.hour)}</span> → weather falls back to Clear`);
+
+    elog("CAL", `${sc.date} → <b>${sc.cal.title}</b> (${sc.cal.sub || "no calendar entry"}) → calendar = <b>${sc.cal.calendar}</b>${sc.src.cal === "manual" ? ' <span class="y">overridden → ' + sc.calendar + "</span>" : ""}`);
+    if (raw && sc.src.wx === "live") {
+      const why = raw.rain >= RULES.heavyRainMm ? `${raw.rain.toFixed(1)} mm ≥ ${RULES.heavyRainMm} mm` : raw.prob >= RULES.heavyRainProb ? `chance ${Math.round(raw.prob)}% ≥ ${RULES.heavyRainProb}%`
+        : raw.pm != null && raw.pm >= RULES.hazePm25 ? `PM2.5 ${Math.round(raw.pm)} ≥ ${RULES.hazePm25}` : "below every threshold";
+      elog("RULE", `crisp weather rule: ${why} → weather = <b>${sc.weather}</b>`);
+    } else elog("RULE", `weather = <b>${sc.weather}</b> (${sc.src.wx === "manual" ? "set by hand" : "fallback"})`);
+
+    const x = encode(sc);
+    elog("ENCODE", `feature vector x = [${CFG.features.map((f) => `<b>${x[f]}</b>`).join(", ")}]  ← ${fmtFeat(x)}`);
+
+    elog("TREE", `walk trained DecisionTreeClassifier (depth ${D.metrics.tree_depth}, ${D.metrics.tree_leaves} leaves, ${D.metrics.train_rows.toLocaleString()} training rows)`);
+    pred.path.forEach((s, k) => elog("TREE", `${"  ".repeat(k)}node ${s.node}: <b>${s.feature}</b> ≤ ${s.threshold}? x=${x[s.feature]} → <b>${s.yes ? "right (yes)" : "left (no)"}</b>  · ${s.samples.toLocaleString()} samples, gini ${f2(s.gini)}`));
+    const P = (lbl) => f2(pred.probs[TREE.classes.indexOf(lbl)]);
+    elog("TREE", `${"  ".repeat(pred.path.length)}leaf ${pred.leaf} → P(Low ${P("Low")}, Medium ${P("Medium")}, High ${P("High")}) →<b style="color:${COLORS[pred.tier]}">${pred.tier}</b> (${Math.round(pred.confidence * 100)}% of ${pred.leafSamples} training days)`);
+
+    elog("FUZZY", `crisp inputs: day_demand <b>${Math.round(fz.x.day_demand)}%</b> · rain <b>${fz.x.rain.toFixed(1)} mm/h</b> · PM2.5 <b>${Math.round(fz.x.air)}</b>  (${fz.x.source})`);
+    for (const k of Object.keys(FZ.inputs)) {
+      elog("FUZZY", `fuzzify ${k}: ${Object.entries(fz.mu[k]).map(([s, v]) => `${s} <b class="${v > 0 ? "c" : ""}">${f2(v)}</b>`).join(" · ")}`);
+    }
+    fz.fired.slice(0, 6).forEach((r) => elog("FUZZY", `rule: IF ${r.day_demand} ∧ ${r.rain} ∧ ${r.air} THEN <b>${r.then}</b>  strength = min(${f2(fz.mu.day_demand[r.day_demand])}, ${f2(fz.mu.rain[r.rain])}, ${f2(fz.mu.air[r.air])}) = <b>${f2(r.strength)}</b>`));
+    if (fz.fired.length > 6) elog("FUZZY", `… ${fz.fired.length - 6} more rules fired with lower strength`);
+    elog("FUZZY", `${fz.fired.length}/${FZ.rules.length} rules fired → clip (min) → aggregate (max) over ${FZ_U.length} points → centroid <b>${f2(fz.score)}</b> → <b style="color:${COLORS[fz.tier]}">${fz.tier}</b> → demand ${Math.round(fz.demand)}%`);
+
+    const basis = state.basis === "fuzzy" ? `fuzzy demand ${Math.round(fz.demand)}%` : `survey formula ${Math.round(dem.value * 100)}% (${dem.factors.map(([n, m]) => `${n} ×${m.toFixed(2)}`).join(" · ") || "normal day"})`;
+    elog("ADVICE", `demand from ${basis}`);
+    elog("ADVICE", `batch = ${state.batch} × ${Math.round(used * 100)}% = <b>${rec} portions</b> (range ${lo}–${hi}) · headline tier from tree: <b style="color:${COLORS[tier]}">${tier}</b> · saves ${saved} portions ≈ ${kwh.toFixed(1)} kWh`);
+    elog("TIME", `tree ${msFmt(tTree)} · fuzzy ${msFmt(tFz)} · all in your browser, no server`);
+
+    updatePipe({ sc, x, pred, fz, rec, tier, raw, tTree, tFz });
+  }
+
+  function updatePipe({ sc, x, pred, fz, rec, tier, raw, tTree, tFz }) {
+    const bits = CFG.features.map((f) => `<span class="${x[f] ? "on" : ""}" title="${f}">${x[f]}</span>`).join("");
+    const stages = [
+      ["🛰️", "Data sources", raw ? `${raw.rain.toFixed(1)} mm · ${Math.round(raw.prob)}% · PM ${raw.pm != null ? Math.round(raw.pm) : "–"}` : "no forecast → Clear", WX.updated ? clock(WX.updated) : "–"],
+      ["📅", "Calendar", sc.cal.title, sc.calendar.split(" ")[0]],
+      ["🔢", "Feature encoding", `<div class="bits">${bits}</div>`, "8 features"],
+      ["🌳", "Decision tree", `${pred.path.length} questions → leaf ${pred.leaf} → ${pred.tier}`, msFmt(tTree)],
+      ["〰️", "Fuzzy engine", `${fz.fired.length} rules → centroid ${Math.round(fz.score)} → ${fz.tier}`, msFmt(tFz)],
+      ["🍛", "Advice", `cook ${rec} · ${tier} risk`, state.basis],
+    ];
+    $("eng-pipe").innerHTML = stages.map(([i, n, v, m], k) => `${k ? '<div class="stage-arrow">▼</div>' : ""}
+      <div class="stage lit" style="animation-delay:${k * 110}ms"><span class="si">${i}</span>
+      <div><div class="sn">${n}</div><div class="sv">${v}</div></div><span class="sm">${m}</span></div>`).join("");
+  }
+
+  /* ---- training replay: CART decision tree (Gini) grown in the browser on the exported dataset ---- */
+  function cart() {
+    const T = D.training, F = T.features, K = T.labels.length;
+    const train = T.rows.filter((r) => !r[2]), test = T.rows.filter((r) => r[2]);
+    const counts = (rs) => { const c = new Array(K).fill(0); rs.forEach((r) => c[r[1]]++); return c; };
+    const gini = (c, n) => 1 - c.reduce((s, v) => s + (v / n) ** 2, 0);
+    const events = [];
+    let nodes = 0, leaves = 0, maxDepth = 0;
+    function grow(rs, depth, path) {
+      const c = counts(rs), n = rs.length, g = gini(c, n), id = nodes++;
+      maxDepth = Math.max(maxDepth, depth);
+      const leaf = () => { leaves++; const cls = c.indexOf(Math.max(...c)); events.push({ type: "leaf", depth, n, c, cls, path }); return { cls }; };
+      if (depth >= T.max_depth || n < 2 * T.min_samples_leaf || g === 0) return leaf();
+      let best = null;
+      F.forEach((f, i) => {
+        const L = rs.filter((r) => !((r[0] >> i) & 1)), R = rs.filter((r) => (r[0] >> i) & 1);
+        if (L.length < T.min_samples_leaf || R.length < T.min_samples_leaf) return;
+        const w = (L.length * gini(counts(L), L.length) + R.length * gini(counts(R), R.length)) / n;
+        if (!best || w < best.w - 1e-12) best = { i, f, w, L, R };
+      });
+      if (!best || best.w >= g - 1e-12) return leaf();
+      events.push({ type: "split", id, depth, n, g, w: best.w, f: best.f, path, nodes, leaves });
+      return { i: best.i, left: grow(best.L, depth + 1, [...path, `${best.f}=0`]), right: grow(best.R, depth + 1, [...path, `${best.f}=1`]) };
+    }
+    const tree = grow(train, 0, []);
+    const classify = (bits) => { let nd = tree; while (nd.cls === undefined) nd = (bits >> nd.i) & 1 ? nd.right : nd.left; return nd.cls; };
+    const correct = test.filter((r) => classify(r[0]) === r[1]).length;
+    return { events, nodes, leaves, maxDepth, train: train.length, test: test.length, acc: correct / test.length, correct };
+  }
+
+  function replayTraining() {
+    if (ENG.training || !D.training) return;
+    ENG.training = true;
+    $("eng-train").disabled = true;
+    $("eng-dot").className = "eng-dot busy";
+    const panel = $("eng-trainpanel");
+    $("eng-pipe").hidden = true; panel.hidden = false;
+    const t0 = performance.now();
+    const res = cart();
+    const ms = performance.now() - t0;
+    const splits = res.events.filter((e) => e.type === "split");
+    panel.innerHTML = `<div class="tp-title">🧠 Learning engine: training replay</div>
+      <div class="tp-bar"><div id="tp-bar"></div></div>
+      <div class="tp-stats">
+        <div class="tp-stat"><span>Training rows</span><strong>${res.train.toLocaleString()}</strong></div>
+        <div class="tp-stat"><span>Splits learned</span><strong id="tp-splits">0</strong></div>
+        <div class="tp-stat"><span>Current depth</span><strong id="tp-depth">0</strong></div>
+        <div class="tp-stat"><span>Leaves</span><strong id="tp-leaves">0</strong></div>
+      </div>
+      <div class="tp-now" id="tp-now">Starting…</div>
+      <div id="tp-result"></div>`;
+    elog("RUN", "── Training replay: CART decision tree, Gini impurity, same data & settings as the Python model ──", "run");
+    elog("TRAIN", `load ${D.training.rows.length.toLocaleString()} simulated service days → split 75/25 (same split as Python) → <b>${res.train.toLocaleString()} train</b> / <b>${res.test.toLocaleString()} test</b>`);
+    elog("TRAIN", `settings: max_depth=${D.training.max_depth}, min_samples_leaf=${D.training.min_samples_leaf}, criterion=gini · features: ${D.training.features.join(", ")}`);
+    let k = 0, leavesSeen = 0;
+    const step = () => {
+      const batch = Math.max(1, Math.ceil(res.events.length / 90));
+      for (let j = 0; j < batch && k < res.events.length; j++, k++) {
+        const e = res.events[k];
+        if (e.type === "split") {
+          const where = e.path.length ? e.path.join(" ∧ ") : "root (all training days)";
+          elog("TRAIN", `${"  ".repeat(e.depth)}split #${splits.indexOf(e) + 1} @ depth ${e.depth} [${where}] n=${e.n.toLocaleString()} → ask <b>${e.f}?</b>  gini ${f2(e.g)} → ${f2(e.w)} (gain <span class="g">${f2(e.g - e.w)}</span>)`);
+          $("tp-splits").textContent = splits.indexOf(e) + 1;
+          $("tp-depth").textContent = e.depth + 1;
+          $("tp-now").innerHTML = `testing 8 questions at [${where}]<br>best: <b>${e.f}</b>, impurity ${f2(e.g)} → ${f2(e.w)}`;
+        } else {
+          leavesSeen++;
+          $("tp-leaves").textContent = leavesSeen;
+        }
+      }
+      $("tp-bar").style.width = (k / res.events.length) * 100 + "%";
+      if (k < res.events.length) { setTimeout(step, 40); return; }
+      // done
+      const pyAcc = D.metrics.test_accuracy;
+      elog("TRAIN", `grown in ${ms.toFixed(1)} ms → ${splits.length} splits, ${res.leaves} leaves, depth ${res.maxDepth}`);
+      elog("TRAIN", `evaluate on ${res.test.toLocaleString()} unseen test days → <b class="g">${res.correct.toLocaleString()} correct = ${(res.acc * 100).toFixed(1)}% accuracy</b> (Python/scikit-learn model: ${(pyAcc * 100).toFixed(1)}%)`);
+      elog("TRAIN", `the dashboard keeps using the exported scikit-learn model; this replay shows how it was learned`);
+      $("tp-now").textContent = "Training complete.";
+      $("tp-result").innerHTML = `<div class="tp-result">✅ <b>${(res.acc * 100).toFixed(1)}%</b> test accuracy (${res.correct.toLocaleString()} / ${res.test.toLocaleString()}) · ${splits.length} splits · ${res.leaves} leaves.<br>Python model: <b>${(pyAcc * 100).toFixed(1)}%</b>. <a href="#" id="tp-back">Back to live pipeline</a></div>`;
+      $("tp-back").onclick = (ev) => { ev.preventDefault(); panel.hidden = true; $("eng-pipe").hidden = false; };
+      ENG.training = false;
+      $("eng-train").disabled = false;
+      $("eng-dot").className = "eng-dot" + (ENG.paused ? " paused" : "");
+    };
+    step();
+  }
+
+  function setupEngine() {
+    const toggle = (open) => {
+      ENG.open = open;
+      $("engine").hidden = !open;
+      $("engine-btn").setAttribute("aria-expanded", open);
+      document.body.classList.toggle("engine-open", open);
+      if (open) { ENG.lastSig = ""; render(); }
+    };
+    $("engine-btn").onclick = () => toggle(!ENG.open);
+    $("eng-close").onclick = () => toggle(false);
+    $("eng-clear").onclick = () => { $("eng-log").innerHTML = ""; elog("SYS", "log cleared"); };
+    $("eng-pause").onclick = () => {
+      ENG.paused = !ENG.paused;
+      $("eng-pause").textContent = ENG.paused ? "▶ Resume" : "❚❚ Pause";
+      $("eng-dot").className = "eng-dot" + (ENG.paused ? " paused" : "");
+      elog("SYS", ENG.paused ? "paused: new runs are not logged" : "resumed");
+      if (!ENG.paused) { ENG.lastSig = ""; render(); }
+    };
+    $("eng-size").onclick = () => { $("engine").classList.toggle("big"); document.body.classList.toggle("engine-big"); };
+    $("eng-train").onclick = replayTraining;
+    elog("SYS", `engine ready · decision tree: ${D.metrics.tree_leaves} leaves, test accuracy ${(D.metrics.test_accuracy * 100).toFixed(1)}% · fuzzy: Mamdani, ${FZ.rules.length} rules · model built ${D.generated}`);
+  }
+
   /* ---------------------------------------------------------- chart utils */
   function baseOpts(scales = {}, extra = {}) {
     return {
@@ -993,6 +1206,7 @@
   }
   document.querySelectorAll(".tab").forEach((t) => (t.onclick = () => showTab(t.dataset.tab)));
   buildControls();
+  setupEngine();
   fillStats();
   buildModel(); // assumption inputs live in the model tab and are read by render()
   render();

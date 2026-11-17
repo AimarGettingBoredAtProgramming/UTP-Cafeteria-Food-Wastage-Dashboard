@@ -8,7 +8,7 @@
   <meta name="theme-color" content="#070b14">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍛</text></svg>">
 </head>
@@ -28,6 +28,7 @@
       <div class="status-pills">
         <span class="pill" id="pill-weather"><span class="dot"></span>Weather: connecting…</span>
         <span class="pill" id="pill-cal"><span class="dot"></span>Calendar</span>
+        <button type="button" class="engine-btn" id="engine-btn" aria-expanded="false" title="Show what the engine is doing">⚙ Engine</button>
       </div>
     </div>
     <nav class="tabs" role="tablist">
@@ -395,6 +396,30 @@
       </div>
     </section>
   </main>
+
+  <section class="engine" id="engine" hidden aria-label="Engine console">
+    <div class="eng-head">
+      <div class="eng-title">
+        <span class="eng-dot" id="eng-dot"></span>
+        <strong>Engine console</strong>
+        <span class="eng-sub">Live trace of every prediction. The model was trained offline in Python (scikit-learn) and runs here in your browser.</span>
+      </div>
+      <div class="eng-actions">
+        <button type="button" class="eng-btn accent" id="eng-train">▶ Replay training</button>
+        <button type="button" class="eng-btn" id="eng-pause">❚❚ Pause</button>
+        <button type="button" class="eng-btn" id="eng-clear">Clear</button>
+        <button type="button" class="eng-btn" id="eng-size" title="Expand / shrink">⤢</button>
+        <button type="button" class="eng-btn" id="eng-close" title="Close">✕</button>
+      </div>
+    </div>
+    <div class="eng-body">
+      <div class="eng-side">
+        <div class="eng-pipe" id="eng-pipe"></div>
+        <div class="eng-trainpanel" id="eng-trainpanel" hidden></div>
+      </div>
+      <div class="eng-log" id="eng-log" role="log" aria-live="off"></div>
+    </div>
+  </section>
 
   <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
