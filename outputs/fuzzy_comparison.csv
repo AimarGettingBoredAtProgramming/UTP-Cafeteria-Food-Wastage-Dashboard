@@ -1,0 +1,253 @@
+day,calendar,weather,short_break,meal,crisp_demand,crisp_tier,fuzzy_score,fuzzy_demand,fuzzy_tier
+Mon,Normal week,Clear,False,Lunch,100.0,Low,5.3,94.7,Low
+Mon,Normal week,Clear,False,Dinner,100.0,Low,5.3,94.7,Low
+Mon,Normal week,Clear,True,Lunch,58.9,Medium,35.0,65.0,Medium
+Mon,Normal week,Clear,True,Dinner,100.0,Low,5.3,94.7,Low
+Mon,Normal week,Heavy rain,False,Lunch,44.7,High,55.0,45.0,High
+Mon,Normal week,Heavy rain,False,Dinner,44.7,High,55.0,45.0,High
+Mon,Normal week,Heavy rain,True,Lunch,26.3,High,82.2,20.0,High
+Mon,Normal week,Heavy rain,True,Dinner,44.7,High,55.0,45.0,High
+Mon,Normal week,Haze,False,Lunch,66.4,Medium,35.0,65.0,Medium
+Mon,Normal week,Haze,False,Dinner,66.4,Medium,35.0,65.0,Medium
+Mon,Normal week,Haze,True,Lunch,39.1,High,55.0,45.0,High
+Mon,Normal week,Haze,True,Dinner,66.4,Medium,35.0,65.0,Medium
+Mon,Exam week,Clear,False,Lunch,81.9,Low,14.8,85.2,Low
+Mon,Exam week,Clear,False,Dinner,81.9,Low,14.8,85.2,Low
+Mon,Exam week,Clear,True,Lunch,48.2,High,44.8,55.2,Medium
+Mon,Exam week,Clear,True,Dinner,81.9,Low,14.8,85.2,Low
+Mon,Exam week,Heavy rain,False,Lunch,36.6,High,60.6,39.4,High
+Mon,Exam week,Heavy rain,False,Dinner,36.6,High,60.6,39.4,High
+Mon,Exam week,Heavy rain,True,Lunch,21.6,High,80.7,20.0,High
+Mon,Exam week,Heavy rain,True,Dinner,36.6,High,60.6,39.4,High
+Mon,Exam week,Haze,False,Lunch,54.4,High,40.4,59.6,Medium
+Mon,Exam week,Haze,False,Dinner,54.4,High,40.4,59.6,Medium
+Mon,Exam week,Haze,True,Lunch,32.0,High,58.7,41.3,High
+Mon,Exam week,Haze,True,Dinner,54.4,High,40.4,59.6,Medium
+Mon,Holiday / break,Clear,False,Lunch,22.9,High,82.2,20.0,High
+Mon,Holiday / break,Clear,False,Dinner,22.9,High,82.2,20.0,High
+Mon,Holiday / break,Clear,True,Lunch,22.9,High,82.2,20.0,High
+Mon,Holiday / break,Clear,True,Dinner,22.9,High,82.2,20.0,High
+Mon,Holiday / break,Heavy rain,False,Lunch,20.0,High,82.2,20.0,High
+Mon,Holiday / break,Heavy rain,False,Dinner,20.0,High,82.2,20.0,High
+Mon,Holiday / break,Heavy rain,True,Lunch,20.0,High,82.2,20.0,High
+Mon,Holiday / break,Heavy rain,True,Dinner,20.0,High,82.2,20.0,High
+Mon,Holiday / break,Haze,False,Lunch,20.0,High,82.2,20.0,High
+Mon,Holiday / break,Haze,False,Dinner,20.0,High,82.2,20.0,High
+Mon,Holiday / break,Haze,True,Lunch,20.0,High,82.2,20.0,High
+Mon,Holiday / break,Haze,True,Dinner,20.0,High,82.2,20.0,High
+Tue,Normal week,Clear,False,Lunch,100.0,Low,5.3,94.7,Low
+Tue,Normal week,Clear,False,Dinner,100.0,Low,5.3,94.7,Low
+Tue,Normal week,Clear,True,Lunch,58.9,Medium,35.0,65.0,Medium
+Tue,Normal week,Clear,True,Dinner,100.0,Low,5.3,94.7,Low
+Tue,Normal week,Heavy rain,False,Lunch,44.7,High,55.0,45.0,High
+Tue,Normal week,Heavy rain,False,Dinner,44.7,High,55.0,45.0,High
+Tue,Normal week,Heavy rain,True,Lunch,26.3,High,82.2,20.0,High
+Tue,Normal week,Heavy rain,True,Dinner,44.7,High,55.0,45.0,High
+Tue,Normal week,Haze,False,Lunch,66.4,Medium,35.0,65.0,Medium
+Tue,Normal week,Haze,False,Dinner,66.4,Medium,35.0,65.0,Medium
+Tue,Normal week,Haze,True,Lunch,39.1,High,55.0,45.0,High
+Tue,Normal week,Haze,True,Dinner,66.4,Medium,35.0,65.0,Medium
+Tue,Exam week,Clear,False,Lunch,81.9,Low,14.8,85.2,Low
+Tue,Exam week,Clear,False,Dinner,81.9,Low,14.8,85.2,Low
+Tue,Exam week,Clear,True,Lunch,48.2,High,44.8,55.2,Medium
+Tue,Exam week,Clear,True,Dinner,81.9,Low,14.8,85.2,Low
+Tue,Exam week,Heavy rain,False,Lunch,36.6,High,60.6,39.4,High
+Tue,Exam week,Heavy rain,False,Dinner,36.6,High,60.6,39.4,High
+Tue,Exam week,Heavy rain,True,Lunch,21.6,High,80.7,20.0,High
+Tue,Exam week,Heavy rain,True,Dinner,36.6,High,60.6,39.4,High
+Tue,Exam week,Haze,False,Lunch,54.4,High,40.4,59.6,Medium
+Tue,Exam week,Haze,False,Dinner,54.4,High,40.4,59.6,Medium
+Tue,Exam week,Haze,True,Lunch,32.0,High,58.7,41.3,High
+Tue,Exam week,Haze,True,Dinner,54.4,High,40.4,59.6,Medium
+Tue,Holiday / break,Clear,False,Lunch,22.9,High,82.2,20.0,High
+Tue,Holiday / break,Clear,False,Dinner,22.9,High,82.2,20.0,High
+Tue,Holiday / break,Clear,True,Lunch,22.9,High,82.2,20.0,High
+Tue,Holiday / break,Clear,True,Dinner,22.9,High,82.2,20.0,High
+Tue,Holiday / break,Heavy rain,False,Lunch,20.0,High,82.2,20.0,High
+Tue,Holiday / break,Heavy rain,False,Dinner,20.0,High,82.2,20.0,High
+Tue,Holiday / break,Heavy rain,True,Lunch,20.0,High,82.2,20.0,High
+Tue,Holiday / break,Heavy rain,True,Dinner,20.0,High,82.2,20.0,High
+Tue,Holiday / break,Haze,False,Lunch,20.0,High,82.2,20.0,High
+Tue,Holiday / break,Haze,False,Dinner,20.0,High,82.2,20.0,High
+Tue,Holiday / break,Haze,True,Lunch,20.0,High,82.2,20.0,High
+Tue,Holiday / break,Haze,True,Dinner,20.0,High,82.2,20.0,High
+Wed,Normal week,Clear,False,Lunch,100.0,Low,5.3,94.7,Low
+Wed,Normal week,Clear,False,Dinner,100.0,Low,5.3,94.7,Low
+Wed,Normal week,Clear,True,Lunch,58.9,Medium,35.0,65.0,Medium
+Wed,Normal week,Clear,True,Dinner,100.0,Low,5.3,94.7,Low
+Wed,Normal week,Heavy rain,False,Lunch,44.7,High,55.0,45.0,High
+Wed,Normal week,Heavy rain,False,Dinner,44.7,High,55.0,45.0,High
+Wed,Normal week,Heavy rain,True,Lunch,26.3,High,82.2,20.0,High
+Wed,Normal week,Heavy rain,True,Dinner,44.7,High,55.0,45.0,High
+Wed,Normal week,Haze,False,Lunch,66.4,Medium,35.0,65.0,Medium
+Wed,Normal week,Haze,False,Dinner,66.4,Medium,35.0,65.0,Medium
+Wed,Normal week,Haze,True,Lunch,39.1,High,55.0,45.0,High
+Wed,Normal week,Haze,True,Dinner,66.4,Medium,35.0,65.0,Medium
+Wed,Exam week,Clear,False,Lunch,81.9,Low,14.8,85.2,Low
+Wed,Exam week,Clear,False,Dinner,81.9,Low,14.8,85.2,Low
+Wed,Exam week,Clear,True,Lunch,48.2,High,44.8,55.2,Medium
+Wed,Exam week,Clear,True,Dinner,81.9,Low,14.8,85.2,Low
+Wed,Exam week,Heavy rain,False,Lunch,36.6,High,60.6,39.4,High
+Wed,Exam week,Heavy rain,False,Dinner,36.6,High,60.6,39.4,High
+Wed,Exam week,Heavy rain,True,Lunch,21.6,High,80.7,20.0,High
+Wed,Exam week,Heavy rain,True,Dinner,36.6,High,60.6,39.4,High
+Wed,Exam week,Haze,False,Lunch,54.4,High,40.4,59.6,Medium
+Wed,Exam week,Haze,False,Dinner,54.4,High,40.4,59.6,Medium
+Wed,Exam week,Haze,True,Lunch,32.0,High,58.7,41.3,High
+Wed,Exam week,Haze,True,Dinner,54.4,High,40.4,59.6,Medium
+Wed,Holiday / break,Clear,False,Lunch,22.9,High,82.2,20.0,High
+Wed,Holiday / break,Clear,False,Dinner,22.9,High,82.2,20.0,High
+Wed,Holiday / break,Clear,True,Lunch,22.9,High,82.2,20.0,High
+Wed,Holiday / break,Clear,True,Dinner,22.9,High,82.2,20.0,High
+Wed,Holiday / break,Heavy rain,False,Lunch,20.0,High,82.2,20.0,High
+Wed,Holiday / break,Heavy rain,False,Dinner,20.0,High,82.2,20.0,High
+Wed,Holiday / break,Heavy rain,True,Lunch,20.0,High,82.2,20.0,High
+Wed,Holiday / break,Heavy rain,True,Dinner,20.0,High,82.2,20.0,High
+Wed,Holiday / break,Haze,False,Lunch,20.0,High,82.2,20.0,High
+Wed,Holiday / break,Haze,False,Dinner,20.0,High,82.2,20.0,High
+Wed,Holiday / break,Haze,True,Lunch,20.0,High,82.2,20.0,High
+Wed,Holiday / break,Haze,True,Dinner,20.0,High,82.2,20.0,High
+Thu,Normal week,Clear,False,Lunch,100.0,Low,5.3,94.7,Low
+Thu,Normal week,Clear,False,Dinner,100.0,Low,5.3,94.7,Low
+Thu,Normal week,Clear,True,Lunch,58.9,Medium,35.0,65.0,Medium
+Thu,Normal week,Clear,True,Dinner,100.0,Low,5.3,94.7,Low
+Thu,Normal week,Heavy rain,False,Lunch,44.7,High,55.0,45.0,High
+Thu,Normal week,Heavy rain,False,Dinner,44.7,High,55.0,45.0,High
+Thu,Normal week,Heavy rain,True,Lunch,26.3,High,82.2,20.0,High
+Thu,Normal week,Heavy rain,True,Dinner,44.7,High,55.0,45.0,High
+Thu,Normal week,Haze,False,Lunch,66.4,Medium,35.0,65.0,Medium
+Thu,Normal week,Haze,False,Dinner,66.4,Medium,35.0,65.0,Medium
+Thu,Normal week,Haze,True,Lunch,39.1,High,55.0,45.0,High
+Thu,Normal week,Haze,True,Dinner,66.4,Medium,35.0,65.0,Medium
+Thu,Exam week,Clear,False,Lunch,81.9,Low,14.8,85.2,Low
+Thu,Exam week,Clear,False,Dinner,81.9,Low,14.8,85.2,Low
+Thu,Exam week,Clear,True,Lunch,48.2,High,44.8,55.2,Medium
+Thu,Exam week,Clear,True,Dinner,81.9,Low,14.8,85.2,Low
+Thu,Exam week,Heavy rain,False,Lunch,36.6,High,60.6,39.4,High
+Thu,Exam week,Heavy rain,False,Dinner,36.6,High,60.6,39.4,High
+Thu,Exam week,Heavy rain,True,Lunch,21.6,High,80.7,20.0,High
+Thu,Exam week,Heavy rain,True,Dinner,36.6,High,60.6,39.4,High
+Thu,Exam week,Haze,False,Lunch,54.4,High,40.4,59.6,Medium
+Thu,Exam week,Haze,False,Dinner,54.4,High,40.4,59.6,Medium
+Thu,Exam week,Haze,True,Lunch,32.0,High,58.7,41.3,High
+Thu,Exam week,Haze,True,Dinner,54.4,High,40.4,59.6,Medium
+Thu,Holiday / break,Clear,False,Lunch,22.9,High,82.2,20.0,High
+Thu,Holiday / break,Clear,False,Dinner,22.9,High,82.2,20.0,High
+Thu,Holiday / break,Clear,True,Lunch,22.9,High,82.2,20.0,High
+Thu,Holiday / break,Clear,True,Dinner,22.9,High,82.2,20.0,High
+Thu,Holiday / break,Heavy rain,False,Lunch,20.0,High,82.2,20.0,High
+Thu,Holiday / break,Heavy rain,False,Dinner,20.0,High,82.2,20.0,High
+Thu,Holiday / break,Heavy rain,True,Lunch,20.0,High,82.2,20.0,High
+Thu,Holiday / break,Heavy rain,True,Dinner,20.0,High,82.2,20.0,High
+Thu,Holiday / break,Haze,False,Lunch,20.0,High,82.2,20.0,High
+Thu,Holiday / break,Haze,False,Dinner,20.0,High,82.2,20.0,High
+Thu,Holiday / break,Haze,True,Lunch,20.0,High,82.2,20.0,High
+Thu,Holiday / break,Haze,True,Dinner,20.0,High,82.2,20.0,High
+Fri,Normal week,Clear,False,Lunch,73.8,Medium,25.8,74.2,Medium
+Fri,Normal week,Clear,False,Dinner,73.8,Medium,25.8,74.2,Medium
+Fri,Normal week,Clear,True,Lunch,43.5,High,60.6,39.4,High
+Fri,Normal week,Clear,True,Dinner,73.8,Medium,25.8,74.2,Medium
+Fri,Normal week,Heavy rain,False,Lunch,33.0,High,71.5,28.5,High
+Fri,Normal week,Heavy rain,False,Dinner,33.0,High,71.5,28.5,High
+Fri,Normal week,Heavy rain,True,Lunch,20.0,High,79.7,20.3,High
+Fri,Normal week,Heavy rain,True,Dinner,33.0,High,71.5,28.5,High
+Fri,Normal week,Haze,False,Lunch,49.0,High,47.8,52.2,High
+Fri,Normal week,Haze,False,Dinner,49.0,High,47.8,52.2,High
+Fri,Normal week,Haze,True,Lunch,28.9,High,67.7,32.3,High
+Fri,Normal week,Haze,True,Dinner,49.0,High,47.8,52.2,High
+Fri,Exam week,Clear,False,Lunch,60.4,Medium,35.0,65.0,Medium
+Fri,Exam week,Clear,False,Dinner,60.4,Medium,35.0,65.0,Medium
+Fri,Exam week,Clear,True,Lunch,35.6,High,79.6,20.4,High
+Fri,Exam week,Clear,True,Dinner,60.4,Medium,35.0,65.0,Medium
+Fri,Exam week,Heavy rain,False,Lunch,27.0,High,82.2,20.0,High
+Fri,Exam week,Heavy rain,False,Dinner,27.0,High,82.2,20.0,High
+Fri,Exam week,Heavy rain,True,Lunch,20.0,High,81.0,20.0,High
+Fri,Exam week,Heavy rain,True,Dinner,27.0,High,82.2,20.0,High
+Fri,Exam week,Haze,False,Lunch,40.1,High,55.0,45.0,High
+Fri,Exam week,Haze,False,Dinner,40.1,High,55.0,45.0,High
+Fri,Exam week,Haze,True,Lunch,23.6,High,80.2,20.0,High
+Fri,Exam week,Haze,True,Dinner,40.1,High,55.0,45.0,High
+Fri,Holiday / break,Clear,False,Lunch,20.0,High,82.2,20.0,High
+Fri,Holiday / break,Clear,False,Dinner,20.0,High,82.2,20.0,High
+Fri,Holiday / break,Clear,True,Lunch,20.0,High,82.2,20.0,High
+Fri,Holiday / break,Clear,True,Dinner,20.0,High,82.2,20.0,High
+Fri,Holiday / break,Heavy rain,False,Lunch,20.0,High,82.2,20.0,High
+Fri,Holiday / break,Heavy rain,False,Dinner,20.0,High,82.2,20.0,High
+Fri,Holiday / break,Heavy rain,True,Lunch,20.0,High,82.2,20.0,High
+Fri,Holiday / break,Heavy rain,True,Dinner,20.0,High,82.2,20.0,High
+Fri,Holiday / break,Haze,False,Lunch,20.0,High,82.2,20.0,High
+Fri,Holiday / break,Haze,False,Dinner,20.0,High,82.2,20.0,High
+Fri,Holiday / break,Haze,True,Lunch,20.0,High,82.2,20.0,High
+Fri,Holiday / break,Haze,True,Dinner,20.0,High,82.2,20.0,High
+Sat,Normal week,Clear,False,Lunch,65.1,Medium,34.9,65.1,Medium
+Sat,Normal week,Clear,False,Dinner,65.1,Medium,34.9,65.1,Medium
+Sat,Normal week,Clear,True,Lunch,65.1,Medium,34.9,65.1,Medium
+Sat,Normal week,Clear,True,Dinner,65.1,Medium,34.9,65.1,Medium
+Sat,Normal week,Heavy rain,False,Lunch,29.1,High,82.0,20.0,High
+Sat,Normal week,Heavy rain,False,Dinner,29.1,High,82.0,20.0,High
+Sat,Normal week,Heavy rain,True,Lunch,29.1,High,82.0,20.0,High
+Sat,Normal week,Heavy rain,True,Dinner,29.1,High,82.0,20.0,High
+Sat,Normal week,Haze,False,Lunch,43.2,High,54.9,45.1,High
+Sat,Normal week,Haze,False,Dinner,43.2,High,54.9,45.1,High
+Sat,Normal week,Haze,True,Lunch,43.2,High,54.9,45.1,High
+Sat,Normal week,Haze,True,Dinner,43.2,High,54.9,45.1,High
+Sat,Exam week,Clear,False,Lunch,53.3,High,35.0,65.0,Medium
+Sat,Exam week,Clear,False,Dinner,53.3,High,35.0,65.0,Medium
+Sat,Exam week,Clear,True,Lunch,53.3,High,35.0,65.0,Medium
+Sat,Exam week,Clear,True,Dinner,53.3,High,35.0,65.0,Medium
+Sat,Exam week,Heavy rain,False,Lunch,23.8,High,81.8,20.0,High
+Sat,Exam week,Heavy rain,False,Dinner,23.8,High,81.8,20.0,High
+Sat,Exam week,Heavy rain,True,Lunch,23.8,High,81.8,20.0,High
+Sat,Exam week,Heavy rain,True,Dinner,23.8,High,81.8,20.0,High
+Sat,Exam week,Haze,False,Lunch,35.4,High,55.0,45.0,High
+Sat,Exam week,Haze,False,Dinner,35.4,High,55.0,45.0,High
+Sat,Exam week,Haze,True,Lunch,35.4,High,55.0,45.0,High
+Sat,Exam week,Haze,True,Dinner,35.4,High,55.0,45.0,High
+Sat,Holiday / break,Clear,False,Lunch,20.0,High,82.2,20.0,High
+Sat,Holiday / break,Clear,False,Dinner,20.0,High,82.2,20.0,High
+Sat,Holiday / break,Clear,True,Lunch,20.0,High,82.2,20.0,High
+Sat,Holiday / break,Clear,True,Dinner,20.0,High,82.2,20.0,High
+Sat,Holiday / break,Heavy rain,False,Lunch,20.0,High,82.2,20.0,High
+Sat,Holiday / break,Heavy rain,False,Dinner,20.0,High,82.2,20.0,High
+Sat,Holiday / break,Heavy rain,True,Lunch,20.0,High,82.2,20.0,High
+Sat,Holiday / break,Heavy rain,True,Dinner,20.0,High,82.2,20.0,High
+Sat,Holiday / break,Haze,False,Lunch,20.0,High,82.2,20.0,High
+Sat,Holiday / break,Haze,False,Dinner,20.0,High,82.2,20.0,High
+Sat,Holiday / break,Haze,True,Lunch,20.0,High,82.2,20.0,High
+Sat,Holiday / break,Haze,True,Dinner,20.0,High,82.2,20.0,High
+Sun,Normal week,Clear,False,Lunch,65.1,Medium,34.9,65.1,Medium
+Sun,Normal week,Clear,False,Dinner,65.1,Medium,34.9,65.1,Medium
+Sun,Normal week,Clear,True,Lunch,65.1,Medium,34.9,65.1,Medium
+Sun,Normal week,Clear,True,Dinner,65.1,Medium,34.9,65.1,Medium
+Sun,Normal week,Heavy rain,False,Lunch,29.1,High,82.0,20.0,High
+Sun,Normal week,Heavy rain,False,Dinner,29.1,High,82.0,20.0,High
+Sun,Normal week,Heavy rain,True,Lunch,29.1,High,82.0,20.0,High
+Sun,Normal week,Heavy rain,True,Dinner,29.1,High,82.0,20.0,High
+Sun,Normal week,Haze,False,Lunch,43.2,High,54.9,45.1,High
+Sun,Normal week,Haze,False,Dinner,43.2,High,54.9,45.1,High
+Sun,Normal week,Haze,True,Lunch,43.2,High,54.9,45.1,High
+Sun,Normal week,Haze,True,Dinner,43.2,High,54.9,45.1,High
+Sun,Exam week,Clear,False,Lunch,53.3,High,35.0,65.0,Medium
+Sun,Exam week,Clear,False,Dinner,53.3,High,35.0,65.0,Medium
+Sun,Exam week,Clear,True,Lunch,53.3,High,35.0,65.0,Medium
+Sun,Exam week,Clear,True,Dinner,53.3,High,35.0,65.0,Medium
+Sun,Exam week,Heavy rain,False,Lunch,23.8,High,81.8,20.0,High
+Sun,Exam week,Heavy rain,False,Dinner,23.8,High,81.8,20.0,High
+Sun,Exam week,Heavy rain,True,Lunch,23.8,High,81.8,20.0,High
+Sun,Exam week,Heavy rain,True,Dinner,23.8,High,81.8,20.0,High
+Sun,Exam week,Haze,False,Lunch,35.4,High,55.0,45.0,High
+Sun,Exam week,Haze,False,Dinner,35.4,High,55.0,45.0,High
+Sun,Exam week,Haze,True,Lunch,35.4,High,55.0,45.0,High
+Sun,Exam week,Haze,True,Dinner,35.4,High,55.0,45.0,High
+Sun,Holiday / break,Clear,False,Lunch,20.0,High,82.2,20.0,High
+Sun,Holiday / break,Clear,False,Dinner,20.0,High,82.2,20.0,High
+Sun,Holiday / break,Clear,True,Lunch,20.0,High,82.2,20.0,High
+Sun,Holiday / break,Clear,True,Dinner,20.0,High,82.2,20.0,High
+Sun,Holiday / break,Heavy rain,False,Lunch,20.0,High,82.2,20.0,High
+Sun,Holiday / break,Heavy rain,False,Dinner,20.0,High,82.2,20.0,High
+Sun,Holiday / break,Heavy rain,True,Lunch,20.0,High,82.2,20.0,High
+Sun,Holiday / break,Heavy rain,True,Dinner,20.0,High,82.2,20.0,High
+Sun,Holiday / break,Haze,False,Lunch,20.0,High,82.2,20.0,High
+Sun,Holiday / break,Haze,False,Dinner,20.0,High,82.2,20.0,High
+Sun,Holiday / break,Haze,True,Lunch,20.0,High,82.2,20.0,High
+Sun,Holiday / break,Haze,True,Dinner,20.0,High,82.2,20.0,High

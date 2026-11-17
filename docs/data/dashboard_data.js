@@ -1659,5 +1659,371 @@ window.DASHBOARD_DATA = {
    "confidence_pct": 82,
    "recommended_batch_if_usual_100": 59
   }
- ]
+ ],
+ "fuzzy": {
+  "method": "Mamdani",
+  "and": "min",
+  "implication": "min (clip)",
+  "aggregation": "max",
+  "defuzzification": "centroid",
+  "inputs": {
+   "day_demand": {
+    "label": "Day demand",
+    "unit": "%",
+    "range": [
+     0,
+     100
+    ],
+    "sets": {
+     "Low": [
+      0,
+      0,
+      30,
+      50
+     ],
+     "Medium": [
+      35,
+      55,
+      65,
+      85
+     ],
+     "High": [
+      65,
+      85,
+      100,
+      100
+     ]
+    }
+   },
+   "rain": {
+    "label": "Rain",
+    "unit": "mm/h",
+    "range": [
+     0,
+     6
+    ],
+    "sets": {
+     "Dry": [
+      0,
+      0,
+      0.1,
+      0.5
+     ],
+     "Light": [
+      0.1,
+      0.5,
+      1.0,
+      2.0
+     ],
+     "Heavy": [
+      1.0,
+      2.0,
+      6,
+      6
+     ]
+    }
+   },
+   "air": {
+    "label": "Air (PM2.5)",
+    "unit": "\u00b5g/m\u00b3",
+    "range": [
+     0,
+     100
+    ],
+    "sets": {
+     "Good": [
+      0,
+      0,
+      15,
+      25
+     ],
+     "Moderate": [
+      15,
+      25,
+      35,
+      50
+     ],
+     "Hazy": [
+      35,
+      55,
+      100,
+      100
+     ]
+    }
+   }
+  },
+  "output": {
+   "label": "Waste risk",
+   "unit": "/100",
+   "range": [
+    0,
+    100
+   ],
+   "sets": {
+    "Very low": [
+     0,
+     0,
+     5,
+     15
+    ],
+    "Low": [
+     5,
+     20,
+     20,
+     35
+    ],
+    "Medium": [
+     20,
+     35,
+     35,
+     50
+    ],
+    "High": [
+     35,
+     55,
+     55,
+     75
+    ],
+    "Very high": [
+     55,
+     75,
+     100,
+     100
+    ]
+   }
+  },
+  "tier_cuts": {
+   "Low": 20,
+   "Medium": 45
+  },
+  "category_values": {
+   "Clear": {
+    "rain": 0.0,
+    "air": 10.0
+   },
+   "Heavy rain": {
+    "rain": 4.0,
+    "air": 10.0
+   },
+   "Haze": {
+    "rain": 0.0,
+    "air": 60.0
+   }
+  },
+  "rules": [
+   {
+    "day_demand": "Low",
+    "rain": "Dry",
+    "air": "Good",
+    "then": "Very high",
+    "evidence": "30% x rain 1.00 x air 1.00 = 30% demand"
+   },
+   {
+    "day_demand": "Low",
+    "rain": "Dry",
+    "air": "Moderate",
+    "then": "Very high",
+    "evidence": "30% x rain 1.00 x air 0.83 = 25% demand"
+   },
+   {
+    "day_demand": "Low",
+    "rain": "Dry",
+    "air": "Hazy",
+    "then": "Very high",
+    "evidence": "30% x rain 1.00 x air 0.66 = 20% demand"
+   },
+   {
+    "day_demand": "Low",
+    "rain": "Light",
+    "air": "Good",
+    "then": "Very high",
+    "evidence": "30% x rain 0.72 x air 1.00 = 22% demand"
+   },
+   {
+    "day_demand": "Low",
+    "rain": "Light",
+    "air": "Moderate",
+    "then": "Very high",
+    "evidence": "30% x rain 0.72 x air 0.83 = 20% demand"
+   },
+   {
+    "day_demand": "Low",
+    "rain": "Light",
+    "air": "Hazy",
+    "then": "Very high",
+    "evidence": "30% x rain 0.72 x air 0.66 = 20% demand"
+   },
+   {
+    "day_demand": "Low",
+    "rain": "Heavy",
+    "air": "Good",
+    "then": "Very high",
+    "evidence": "30% x rain 0.45 x air 1.00 = 20% demand"
+   },
+   {
+    "day_demand": "Low",
+    "rain": "Heavy",
+    "air": "Moderate",
+    "then": "Very high",
+    "evidence": "30% x rain 0.45 x air 0.83 = 20% demand"
+   },
+   {
+    "day_demand": "Low",
+    "rain": "Heavy",
+    "air": "Hazy",
+    "then": "Very high",
+    "evidence": "30% x rain 0.45 x air 0.66 = 20% demand"
+   },
+   {
+    "day_demand": "Medium",
+    "rain": "Dry",
+    "air": "Good",
+    "then": "Medium",
+    "evidence": "60% x rain 1.00 x air 1.00 = 60% demand"
+   },
+   {
+    "day_demand": "Medium",
+    "rain": "Dry",
+    "air": "Moderate",
+    "then": "High",
+    "evidence": "60% x rain 1.00 x air 0.83 = 50% demand"
+   },
+   {
+    "day_demand": "Medium",
+    "rain": "Dry",
+    "air": "Hazy",
+    "then": "High",
+    "evidence": "60% x rain 1.00 x air 0.66 = 40% demand"
+   },
+   {
+    "day_demand": "Medium",
+    "rain": "Light",
+    "air": "Good",
+    "then": "High",
+    "evidence": "60% x rain 0.72 x air 1.00 = 43% demand"
+   },
+   {
+    "day_demand": "Medium",
+    "rain": "Light",
+    "air": "Moderate",
+    "then": "High",
+    "evidence": "60% x rain 0.72 x air 0.83 = 36% demand"
+   },
+   {
+    "day_demand": "Medium",
+    "rain": "Light",
+    "air": "Hazy",
+    "then": "Very high",
+    "evidence": "60% x rain 0.72 x air 0.66 = 29% demand"
+   },
+   {
+    "day_demand": "Medium",
+    "rain": "Heavy",
+    "air": "Good",
+    "then": "Very high",
+    "evidence": "60% x rain 0.45 x air 1.00 = 27% demand"
+   },
+   {
+    "day_demand": "Medium",
+    "rain": "Heavy",
+    "air": "Moderate",
+    "then": "Very high",
+    "evidence": "60% x rain 0.45 x air 0.83 = 22% demand"
+   },
+   {
+    "day_demand": "Medium",
+    "rain": "Heavy",
+    "air": "Hazy",
+    "then": "Very high",
+    "evidence": "60% x rain 0.45 x air 0.66 = 20% demand"
+   },
+   {
+    "day_demand": "High",
+    "rain": "Dry",
+    "air": "Good",
+    "then": "Very low",
+    "evidence": "95% x rain 1.00 x air 1.00 = 95% demand"
+   },
+   {
+    "day_demand": "High",
+    "rain": "Dry",
+    "air": "Moderate",
+    "then": "Low",
+    "evidence": "95% x rain 1.00 x air 0.83 = 79% demand"
+   },
+   {
+    "day_demand": "High",
+    "rain": "Dry",
+    "air": "Hazy",
+    "then": "Medium",
+    "evidence": "95% x rain 1.00 x air 0.66 = 63% demand"
+   },
+   {
+    "day_demand": "High",
+    "rain": "Light",
+    "air": "Good",
+    "then": "Medium",
+    "evidence": "95% x rain 0.72 x air 1.00 = 69% demand"
+   },
+   {
+    "day_demand": "High",
+    "rain": "Light",
+    "air": "Moderate",
+    "then": "Medium",
+    "evidence": "95% x rain 0.72 x air 0.83 = 57% demand"
+   },
+   {
+    "day_demand": "High",
+    "rain": "Light",
+    "air": "Hazy",
+    "then": "High",
+    "evidence": "95% x rain 0.72 x air 0.66 = 46% demand"
+   },
+   {
+    "day_demand": "High",
+    "rain": "Heavy",
+    "air": "Good",
+    "then": "High",
+    "evidence": "95% x rain 0.45 x air 1.00 = 42% demand"
+   },
+   {
+    "day_demand": "High",
+    "rain": "Heavy",
+    "air": "Moderate",
+    "then": "High",
+    "evidence": "95% x rain 0.45 x air 0.83 = 35% demand"
+   },
+   {
+    "day_demand": "High",
+    "rain": "Heavy",
+    "air": "Hazy",
+    "then": "Very high",
+    "evidence": "95% x rain 0.45 x air 0.66 = 28% demand"
+   }
+  ],
+  "assumptions": {
+   "Light": "halfway between dry and heavy rain",
+   "Moderate": "halfway between good air and haze"
+  },
+  "rep_day": {
+   "Low": 30,
+   "Medium": 60,
+   "High": 95
+  },
+  "metrics": {
+   "tier_agreement_with_crisp": 0.9048,
+   "mean_abs_demand_diff": 3.17,
+   "rules": 27
+  },
+  "example": {
+   "inputs": {
+    "day_demand": 73.8,
+    "rain": 1.4,
+    "air": 18.0
+   },
+   "score": 60.5,
+   "demand": 39.5,
+   "tier": "High"
+  }
+ }
 };

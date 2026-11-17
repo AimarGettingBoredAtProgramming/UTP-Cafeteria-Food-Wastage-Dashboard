@@ -148,6 +148,10 @@
                 <h2 class="risk-title"><span id="risk-tier">Low</span> surplus-waste risk</h2>
                 <p class="risk-msg" id="risk-msg"></p>
                 <p class="period-note" id="period-note" hidden></p>
+                <div class="verdicts">
+                  <span class="verdict" id="v-tree">🌳 Decision tree: –</span>
+                  <span class="verdict" id="v-fuzzy">〰️ Fuzzy logic: –</span>
+                </div>
                 <div class="confidence">
                   <span>Model confidence</span>
                   <div class="bar"><div id="conf-bar"></div></div>
@@ -185,6 +189,36 @@
               <span class="kpi-lbl">Energy saved</span>
               <span class="kpi-val" id="kpi-kwh">0 kWh</span>
               <span class="kpi-sub" id="kpi-co2">≈ 0 kg CO₂</span>
+            </div>
+          </div>
+
+          <div class="card fuzzy-card">
+            <div class="card-head">
+              <div>
+                <h3>〰️ Fuzzy logic view <span class="muted small">Mamdani inference system</span></h3>
+                <p class="muted small fz-sub">The live numbers are turned into degrees of membership, the IF–THEN rules fire, and the combined shape is defuzzified (centroid) into one smooth risk score.</p>
+              </div>
+              <div class="basis">
+                <span class="muted small">Batch size from</span>
+                <div class="segmented" id="basis-seg">
+                  <button type="button" class="seg-btn" data-val="fuzzy">Fuzzy logic</button>
+                  <button type="button" class="seg-btn" data-val="formula">Survey formula</button>
+                </div>
+              </div>
+            </div>
+            <div class="fz-steps">
+              <span><b>1</b> Crisp input</span><span><b>2</b> Fuzzification</span><span><b>3</b> Rule evaluation</span>
+              <span><b>4</b> Implication</span><span><b>5</b> Aggregation</span><span><b>6</b> Defuzzification</span><span><b>7</b> Crisp output</span>
+            </div>
+            <div class="fz-grid">
+              <div class="fz-cell"><div class="fz-title" id="fz-t-day_demand"></div><div class="chart-box fz"><canvas id="fz-day_demand"></canvas></div><div class="fz-mu" id="fz-mu-day_demand"></div></div>
+              <div class="fz-cell"><div class="fz-title" id="fz-t-rain"></div><div class="chart-box fz"><canvas id="fz-rain"></canvas></div><div class="fz-mu" id="fz-mu-rain"></div></div>
+              <div class="fz-cell"><div class="fz-title" id="fz-t-air"></div><div class="chart-box fz"><canvas id="fz-air"></canvas></div><div class="fz-mu" id="fz-mu-air"></div></div>
+              <div class="fz-cell out"><div class="fz-title" id="fz-t-out"></div><div class="chart-box fz"><canvas id="fz-out"></canvas></div><div class="fz-mu" id="fz-result"></div></div>
+            </div>
+            <div class="fz-rules-wrap">
+              <span class="muted small">Rules firing now (AND = minimum; strength clips each rule's output shape)</span>
+              <ol class="fz-rules" id="fz-rules"></ol>
             </div>
           </div>
 
@@ -283,6 +317,32 @@
       <div class="two-col">
         <div class="card"><h3>What drives the prediction</h3><p class="muted small">Decision-tree feature importance</p><div class="chart-box"><canvas id="ch-imp"></canvas></div></div>
         <div class="card"><h3>Confusion matrix (test set)</h3><p class="muted small">Rows = actual risk, columns = predicted</p><div id="cm" class="cm"></div></div>
+      </div>
+
+      <div class="card">
+        <h3>Fuzzy inference system (Mamdani)</h3>
+        <p class="muted small">A second AI technique (Lecture 8) on top of the decision tree. The tree classifies the day using yes/no inputs. The fuzzy system reasons with the live numbers (rain mm, PM2.5, day demand), so the advice changes smoothly instead of jumping at a threshold.</p>
+        <div class="flow">
+          <div class="flow-step"><span class="flow-n">1</span><strong>Crisp input</strong><span>Rain mm/h, PM2.5, day demand %</span></div>
+          <div class="flow-step"><span class="flow-n">2</span><strong>Fuzzification</strong><span>Degrees of membership, e.g. rain is Light 0.6 / Heavy 0.4</span></div>
+          <div class="flow-step"><span class="flow-n">3</span><strong>Rule evaluation</strong><span>27 IF–THEN rules, AND = minimum</span></div>
+          <div class="flow-step"><span class="flow-n">4</span><strong>Implication</strong><span>Each rule clips its output shape</span></div>
+          <div class="flow-step"><span class="flow-n">5</span><strong>Aggregation</strong><span>Clipped shapes combined (maximum)</span></div>
+          <div class="flow-step"><span class="flow-n">6</span><strong>Defuzzification</strong><span>Centroid of the combined shape</span></div>
+          <div class="flow-step"><span class="flow-n">7</span><strong>Crisp output</strong><span>Risk 0–100 → demand % → portions</span></div>
+        </div>
+      </div>
+
+      <div class="stat-row">
+        <div class="card stat"><span class="stat-val" id="fz-m-rules">27</span><span class="stat-lbl">fuzzy IF–THEN rules, each derived from survey evidence</span></div>
+        <div class="card stat"><span class="stat-val" id="fz-m-agree">–</span><span class="stat-lbl">same risk tier as the crisp survey rule (252 scenarios)</span></div>
+        <div class="card stat"><span class="stat-val" id="fz-m-diff">–</span><span class="stat-lbl">average difference in demand (percentage points)</span></div>
+        <div class="card stat"><span class="stat-val">Mamdani</span><span class="stat-lbl">chosen over Sugeno: readable rules built from human (survey) knowledge</span></div>
+      </div>
+
+      <div class="two-col">
+        <div class="card"><h3>Crisp rule vs fuzzy logic</h3><p class="muted small">Normal weekday lunch as rain increases. The crisp rule jumps at 1 mm, while fuzzy logic slopes smoothly.</p><div class="chart-box"><canvas id="ch-sweep"></canvas></div></div>
+        <div class="card"><h3>Rule base</h3><p class="muted small">THEN-part of every rule (waste risk) for each combination of day demand × rain, one table per air-quality level.</p><div id="fz-matrix" class="fz-matrix"></div></div>
       </div>
 
       <div class="card">

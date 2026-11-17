@@ -91,7 +91,7 @@ def main(summary: dict | None = None) -> pd.DataFrame:
     df = pd.DataFrame(rows)
     df.to_csv(C.SCENARIO_DATASET, index=False)
     dist = df["risk"].value_counts().reindex(C.RISK_ORDER).to_dict()
-    print(f"[2/3] Simulated dataset: {len(df)} rows from {len(df) // C.SIM_DAYS_PER_SCENARIO} scenarios. Risk mix: {dist}")
+    print(f"[2/4] Simulated dataset: {len(df)} rows from {len(df) // C.SIM_DAYS_PER_SCENARIO} scenarios. Risk mix: {dist}")
     return df
 
 

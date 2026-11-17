@@ -243,6 +243,42 @@ input[type=range] { width: 100%; accent-color: var(--brand); }
 .toast strong { color: var(--brand); display: block; margin-bottom: 2px; }
 @keyframes toastIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
 
+/* ---------- Fuzzy logic ---------- */
+.verdicts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.verdict { font-size: 12.5px; font-weight: 600; padding: 4px 11px; border-radius: 99px; border: 1px solid var(--line-hi); background: var(--card-hi); color: #c3cedd; }
+.verdict b { color: var(--vc, var(--ink)); }
+.fuzzy-card .card-head { align-items: flex-start; }
+.fz-sub { margin: 4px 0 0; max-width: 640px; }
+.basis { display: flex; flex-direction: column; gap: 5px; align-items: flex-end; }
+.basis .segmented { min-width: 240px; }
+.basis .seg-btn { padding: 7px 10px; font-size: 12.5px; }
+.fz-steps { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 14px; }
+.fz-steps span { font-size: 11.5px; color: var(--muted); padding: 3px 9px 3px 4px; border-radius: 99px; border: 1px solid var(--line); background: var(--bg-2); }
+.fz-steps b { display: inline-grid; place-items: center; width: 17px; height: 17px; margin-right: 4px; border-radius: 50%; font-size: 10px; color: #04121c; background: linear-gradient(135deg, var(--brand), var(--brand-2)); }
+.fz-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.fz-cell { border: 1px solid var(--line); background: var(--bg-2); border-radius: 13px; padding: 10px 10px 8px; min-width: 0; }
+.fz-cell.out { border-color: color-mix(in srgb, var(--risk) 45%, transparent); }
+.fz-title { font-size: 12.5px; font-weight: 600; color: var(--muted); }
+.fz-title strong { color: var(--ink); font-family: "Space Grotesk", Inter, sans-serif; font-size: 15px; }
+.chart-box.fz { height: 120px; margin-top: 4px; }
+.fz-mu { display: flex; flex-wrap: wrap; gap: 4px 8px; font-size: 11.5px; color: var(--muted); margin-top: 6px; }
+.fz-mu span b { color: var(--ink); }
+.fz-mu .dot { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 4px; vertical-align: 0; }
+#fz-result { font-size: 12.5px; color: #c3cedd; display: block; }
+#fz-result strong { color: var(--risk); }
+.fz-rules-wrap { margin-top: 14px; }
+.fz-rules { margin: 6px 0 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+.fz-rules li { display: grid; grid-template-columns: minmax(0, 1fr) 120px 44px; gap: 10px; align-items: center; font-size: 13px; color: #c3cedd; }
+.fz-rules .rb { height: 7px; background: #1d2738; border-radius: 99px; overflow: hidden; }
+.fz-rules .rb div { height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--brand), var(--brand-2)); }
+.fz-rules .rv { text-align: right; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+.fz-rules em { font-style: normal; font-weight: 700; color: var(--tc); }
+.fz-matrix { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 10px; }
+.fz-matrix table { width: 100%; border-collapse: separate; border-spacing: 3px; font-size: 11px; }
+.fz-matrix caption { font-size: 12px; font-weight: 700; color: var(--ink); text-align: left; padding-bottom: 4px; }
+.fz-matrix th { color: var(--muted); font-weight: 600; padding: 2px; }
+.fz-matrix td { text-align: center; padding: 6px 2px; border-radius: 6px; font-weight: 700; color: #0b1220; }
+
 /* ---------- Live strip ---------- */
 .live-strip { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .live-card { display: flex; gap: 14px; align-items: center; padding: 14px 18px; }
@@ -405,6 +441,7 @@ input[type=range] { width: 100%; accent-color: var(--brand); }
 /* ---------- Responsive ---------- */
 @media (max-width: 1150px) {
   .advisor-grid { grid-template-columns: 1fr; }
+  .fz-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .inputs { position: static; }
   .kpis { grid-template-columns: repeat(2, 1fr); }
 }
@@ -431,4 +468,8 @@ input[type=range] { width: 100%; accent-color: var(--brand); }
   .hicon { font-size: 13px; }
   .hicon.odd, .tick.odd { display: none; }
   .toast { left: 16px; right: 16px; bottom: 16px; max-width: none; }
+  .fz-grid, .fz-matrix { grid-template-columns: minmax(0, 1fr); }
+  .basis { align-items: stretch; width: 100%; }
+  .basis .segmented { min-width: 0; }
+  .fz-rules li { grid-template-columns: minmax(0, 1fr) 60px 40px; font-size: 12px; }
 }

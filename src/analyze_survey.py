@@ -159,7 +159,7 @@ def main():
     C.OUTPUTS.mkdir(exist_ok=True)
     (C.OUTPUTS / "survey_summary.json").write_text(json.dumps(summary, indent=2))
     make_figures(summary, mult)
-    print(f"[1/3] Survey cleaned: {len(df)} responses")
+    print(f"[1/4] Survey cleaned: {len(df)} responses")
     print(f"      Weekday baseline probability: {mult['baseline_weekday_probability']}")
     for k, v in mult["multipliers"].items():
         print(f"      {k:<12} x{v}")

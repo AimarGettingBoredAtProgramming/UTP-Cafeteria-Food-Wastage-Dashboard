@@ -43,6 +43,7 @@ The dashboard has three tabs: **Daily advisor**, **Survey insights** (all survey
 
 ```
 Student survey (n=56) ─► Demand multipliers ─► Simulated service history ─► Decision tree ─┐
+                                     └──────────► Mamdani fuzzy rules (27) ─────────────────────┤
    16 questions            Likert → probability     252 scenarios × 20 days       Low/Med/High  │
                                                                                                 ├─► Vendor advice
 Live inputs: Open-Meteo weather + air quality, UTP academic calendar, Perak holidays ───────────┘   batch, plan, energy
@@ -62,6 +63,15 @@ Live inputs: Open-Meteo weather + air quality, UTP academic calendar, Perak holi
 
 2. **Simulated dataset** (`src/build_dataset.py`). All 252 combinations of day type, calendar, weather, short breaks and meal are run for 20 simulated days each, with ±5% day-to-day noise. That gives 5,040 rows. Each day is labelled Low (≥ 80% of normal demand), Medium (55–80%) or High (< 55%) surplus-waste risk.
 3. **Decision tree** (`src/train_model.py`). A scikit-learn `DecisionTreeClassifier` (depth 8) is trained on 75% of the rows and tested on the other 25%. The tree is exported to JSON, and the dashboard walks the same tree in the browser. The browser therefore gives exactly the same prediction as Python, and it can show the decision path.
+
+4. **Mamdani fuzzy inference system** (`src/fuzzy_model.py`). This is a second AI technique (Lecture 8: Fuzzy Logic). The decision tree uses yes/no inputs, so 1.0 mm of rain counts as "heavy" but 0.9 mm counts as "clear". The fuzzy system instead reasons with the live **numbers**:
+   - **Inputs:** day demand % (day + calendar + class breaks), rain mm/h and PM2.5 µg/m³, each with three fuzzy sets (e.g. rain *Dry / Light / Heavy*).
+   - **27 IF–THEN rules** derived from the survey, e.g. *IF day demand is High AND rain is Heavy AND air is Good THEN risk is High*. Light rain and moderate air are assumed to sit halfway between "none" and the surveyed heavy-rain and haze effects.
+   - **Pipeline:** fuzzification → rule evaluation (AND = min) → implication (clip) → aggregation (max) → **centroid** defuzzification. The output is a waste-risk score from 0 to 100, which gives expected demand and then a smooth batch size.
+   - **Results:** the same risk tier as the crisp survey rule in **90.5%** of the 252 scenarios, with an average demand difference of 3.2 percentage points. The differences come where fuzzy logic gives a softer answer near a boundary.
+   - **Why Mamdani and not Sugeno:** the rules come from human (survey) knowledge rather than large historical data, and Mamdani's readable rules and graphical output are easier for vendors to trust. Sugeno/ANFIS is proposed as future work once real sales data exists.
+
+   On the dashboard, the **Fuzzy logic view** card animates live: membership curves with the current values, the rules firing and their strengths, and the aggregated output with its centroid. A toggle chooses whether the batch size comes from **fuzzy logic** (the default) or the **survey formula**. The headline risk tier still comes from the decision tree.
 
 ### Results
 
@@ -116,10 +126,13 @@ src/
   config.py                     paths, scoring rules, thresholds, model settings
   analyze_survey.py             step 1: survey -> multipliers + report charts
   build_dataset.py              step 2: multipliers -> simulated labelled dataset
-  train_model.py                step 3: decision tree, evaluation, dashboard export
-  run_all.py                    runs all three steps
+  fuzzy_model.py                step 3: Mamdani fuzzy inference system (rules, figures, export)
+  train_model.py                step 4: decision tree, evaluation, dashboard export
+  run_all.py                    runs all four steps
 outputs/
-  figures/                      PNG charts for the report (01-08)
+  figures/                      PNG charts for the report (01-11, 09-11 = fuzzy logic)
+  fuzzy_rules.csv               the 27 fuzzy rules with survey evidence
+  fuzzy_comparison.csv          fuzzy vs crisp results on all 252 scenarios
   survey_summary.json           all survey counts, percentages and multipliers
   model_metrics.json            accuracy, confusion matrix, feature importance
   decision_tree_rules.txt       full tree as readable if/else rules

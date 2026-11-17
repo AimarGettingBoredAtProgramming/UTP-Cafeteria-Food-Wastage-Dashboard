@@ -68,7 +68,7 @@
   /* --------------------------------------------------------------- state */
   const state = {
     date: todayKL(), time: nowSlot(), follow: true, live: true, ovCal: false, ovWx: false,
-    day: "Wed", calendar: "Normal week", weather: "Clear", shortBreak: false, batch: 120,
+    day: "Wed", calendar: "Normal week", weather: "Clear", shortBreak: false, batch: 120, basis: "fuzzy",
   };
   const WX = { status: "loading", hours: {}, first: null, last: null, updated: null };
 
@@ -220,7 +220,60 @@
     return { tier: TREE.classes[best], confidence: probs[best], path, leafSamples: nodes[i].samples };
   }
 
-  const tierAt = (iso, min) => { const sc = scenarioFor(iso, min); return { sc, dem: demand(sc), pred: predict(encode(sc)) }; };
+  /* --------------------------------------------- fuzzy logic (Mamdani) */
+  // Same membership functions, rules and inference steps as src/fuzzy_model.py
+  const FZ = D.fuzzy;
+  const trap = (x, [a, b, c, d]) => {
+    const l = a === b ? 1 : Math.min(Math.max((x - a) / (b - a), 0), 1);
+    const r = c === d ? 1 : Math.min(Math.max((d - x) / (d - c), 0), 1);
+    return Math.min(l, r);
+  };
+  const FZ_U = Array.from({ length: 201 }, (_, i) => i * 0.5); // output universe 0..100
+
+  function fuzzyInputs(sc) {
+    // day demand = day + calendar + class breaks only (weather is handled by the fuzzy rain/air inputs)
+    const dayDem = demand({ ...sc, weather: "Clear" }).value * 100;
+    const raw = WX.hours[sc.date] && WX.hours[sc.date][sc.hour];
+    const useLive = state.live && !state.ovWx && raw;
+    const cat = FZ.category_values[sc.weather] || FZ.category_values.Clear;
+    return {
+      day_demand: dayDem,
+      rain: useLive ? raw.rain : cat.rain,
+      air: useLive ? (raw.pm != null ? raw.pm : cat.air) : cat.air,
+      source: useLive ? "live forecast" : `${sc.weather.toLowerCase()} (typical values)`,
+    };
+  }
+
+  function fuzzyInfer(x) {
+    const mu = {};
+    for (const k of Object.keys(FZ.inputs)) {
+      mu[k] = {};
+      for (const [s, p] of Object.entries(FZ.inputs[k].sets)) mu[k][s] = trap(Math.min(Math.max(x[k], FZ.inputs[k].range[0]), FZ.inputs[k].range[1]), p);
+    }
+    const agg = FZ_U.map(() => 0);
+    const fired = [];
+    for (const r of FZ.rules) {
+      const w = Math.min(mu.day_demand[r.day_demand], mu.rain[r.rain], mu.air[r.air]);
+      if (w <= 0) continue;
+      const p = FZ.output.sets[r.then];
+      FZ_U.forEach((u, i) => { agg[i] = Math.max(agg[i], Math.min(w, trap(u, p))); });
+      fired.push({ ...r, strength: w });
+    }
+    const area = agg.reduce((a, b) => a + b, 0);
+    const score = area > 0 ? FZ_U.reduce((s, u, i) => s + u * agg[i], 0) / area : 50;
+    const tier = score < FZ.tier_cuts.Low ? "Low" : score < FZ.tier_cuts.Medium ? "Medium" : "High";
+    const dem = Math.max(100 - score, CFG.demand_floor * 100);
+    return { mu, agg, score, tier, demand: dem, fired: fired.sort((a, b) => b.strength - a.strength) };
+  }
+
+  const fuzzyFor = (sc) => { const x = fuzzyInputs(sc); return { x, ...fuzzyInfer(x) }; };
+  // demand actually used for the batch size: fuzzy (smooth) or survey formula (crisp)
+  const usedDemand = (dem, fz) => (state.basis === "fuzzy" ? fz.demand / 100 : dem.value);
+
+  const tierAt = (iso, min) => {
+    const sc = scenarioFor(iso, min), dem = demand(sc), fz = fuzzyFor(sc);
+    return { sc, dem, fz, pred: predict(encode(sc)), used: usedDemand(dem, fz) };
+  };
 
   function assumptions() {
     const v = (id, d) => { const x = parseFloat($(id).value); return isFinite(x) && x >= 0 ? x : d; };
@@ -285,6 +338,7 @@
     });
     seg("cal-seg", "calendar", CFG.calendar, "ovCal");
     seg("wx-seg", "weather", CFG.weather, "ovWx");
+    document.querySelectorAll("#basis-seg .seg-btn").forEach((b) => b.onclick = () => { state.basis = b.dataset.val; render(); });
 
     // time scrubber: meal-period bands, hour icons, ticks
     const span = CLOSE - OPEN;
@@ -345,7 +399,7 @@
 
   function syncControls(sc) {
     document.querySelectorAll("#day-chips .chip").forEach((b) => b.classList.toggle("active", b.dataset.val === sc.day));
-    [["cal-seg", sc.calendar], ["wx-seg", sc.weather]].forEach(([el, v]) =>
+    [["cal-seg", sc.calendar], ["wx-seg", sc.weather], ["basis-seg", state.basis]].forEach(([el, v]) =>
       document.querySelectorAll(`#${el} .seg-btn`).forEach((b) => b.classList.toggle("active", b.dataset.val === v)));
     $("date").value = state.date;
     $("date").disabled = !state.live;
@@ -366,11 +420,12 @@
     const sc = scenarioFor(state.date);
     syncControls(sc);
     const dem = demand(sc), pred = predict(encode(sc)), A = assumptions();
-    const tier = pred.tier, pct = Math.round(dem.value * 100);
+    const fz = fuzzyFor(sc), used = usedDemand(dem, fz);
+    const tier = pred.tier, pct = Math.round(used * 100);
     document.documentElement.style.setProperty("--risk", COLORS[tier]);
     document.documentElement.style.setProperty("--risk-soft", SOFT[tier]);
 
-    const rec = Math.round(state.batch * dem.value);
+    const rec = Math.round(state.batch * used);
     renderTime(sc, rec);
     renderLive(sc);
 
@@ -388,7 +443,10 @@
     $("demand-pct").textContent = pct;
     const arc = 157.1;
     $("gauge-fg").style.strokeDasharray = arc;
-    $("gauge-fg").style.strokeDashoffset = arc * (1 - Math.min(dem.value, 1));
+    $("gauge-fg").style.strokeDashoffset = arc * (1 - Math.min(used, 1));
+    document.querySelector(".gauge-lbl").textContent = `of normal-day demand · ${state.basis === "fuzzy" ? "fuzzy logic" : "survey formula"}`;
+    $("v-tree").innerHTML = `🌳 Decision tree: <b style="--vc:${COLORS[tier]}">${tier}</b> (${Math.round(pred.confidence * 100)}% sure)`;
+    $("v-fuzzy").innerHTML = `〰️ Fuzzy logic: <b style="--vc:${COLORS[fz.tier]}">${Math.round(fz.score)}/100 · ${fz.tier}</b>`;
     $("conf-bar").style.width = Math.round(pred.confidence * 100) + "%";
     $("conf-pct").textContent = Math.round(pred.confidence * 100) + "%";
 
@@ -407,8 +465,9 @@
     renderPlan(sc, tier, rec);
     renderHourNote(sc);
     renderWhy(dem, pred);
+    renderFuzzy(fz);
     renderWeek();
-    renderSlots(sc, dem, tier);
+    renderSlots(sc, used, tier);
     renderTips(sc);
   }
 
@@ -491,7 +550,7 @@
     const labels = hours.map((h) => fmtHour(h).replace(" ", "").toLowerCase());
     const rain = hours.map((h) => { const s = WX.hours[state.date] && WX.hours[state.date][h]; return s ? +s.rain.toFixed(1) : 0; });
     const pts = hours.map((h) => tierAt(state.date, h * 60));
-    const dem = pts.map((p) => Math.round(p.dem.value * 100));
+    const dem = pts.map((p) => Math.round(p.used * 100));
     const ptColors = pts.map((p) => COLORS[p.pred.tier]);
     const sel = Math.floor(state.time / 60) - OPEN / 60;
     const data = {
@@ -614,6 +673,108 @@
     $("path").innerHTML = steps.join("");
   }
 
+  /* --------------------------------------------- fuzzy card (live view) */
+  const FZ_COLORS = {
+    day_demand: { Low: "#f87171", Medium: "#fbbf24", High: "#34d399" },
+    rain: { Dry: "#34d399", Light: "#38bdf8", Heavy: "#818cf8" },
+    air: { Good: "#34d399", Moderate: "#fbbf24", Hazy: "#a8a29e" },
+    out: { "Very low": "#34d399", Low: "#a3e635", Medium: "#fbbf24", High: "#fb923c", "Very high": "#f87171" },
+  };
+  // vertical line at chart.$x (linear x axis)
+  const vlinePlugin = {
+    id: "vline",
+    afterDatasetsDraw(chart) {
+      if (chart.$x == null) return;
+      const x = chart.scales.x.getPixelForValue(chart.$x), { top, bottom } = chart.chartArea, c = chart.ctx;
+      c.save(); c.strokeStyle = chart.$xc || "#fff"; c.fillStyle = chart.$xc || "#fff"; c.lineWidth = 2.5;
+      c.shadowColor = chart.$xc || "#fff"; c.shadowBlur = 6;
+      c.beginPath(); c.moveTo(x, top); c.lineTo(x, bottom); c.stroke();
+      c.beginPath(); c.arc(x, top, 4, 0, Math.PI * 2); c.fill(); c.restore();
+    },
+  };
+  const fzCharts = {};
+  function fzChart(id, spec, colors, extra = []) {
+    const [lo, hi] = spec.range, xs = Array.from({ length: 121 }, (_, i) => lo + (hi - lo) * i / 120);
+    const sets = Object.entries(spec.sets).map(([name, p]) => ({
+      label: name, data: xs.map((x) => ({ x, y: trap(x, p) })), borderColor: colors[name], borderWidth: 2,
+      pointRadius: 0, fill: false, tension: 0,
+    }));
+    return new Chart($(id), {
+      type: "line", data: { datasets: [...extra, ...sets] }, plugins: [vlinePlugin],
+      options: {
+        responsive: true, maintainAspectRatio: false, animation: false, events: [],
+        plugins: { legend: { display: false }, tooltip: { enabled: false } },
+        scales: {
+          x: { type: "linear", min: lo, max: hi, grid: { display: false }, ticks: { maxTicksLimit: 5, font: { size: 10 } } },
+          y: { min: 0, max: 1.05, grid: { color: GRID }, ticks: { stepSize: 0.5, font: { size: 10 } } },
+        },
+      },
+    });
+  }
+
+  function renderFuzzy(fz) {
+    if (!FZ || !window.Chart || !Chart.register) return;
+    for (const k of Object.keys(FZ.inputs)) {
+      const spec = FZ.inputs[k];
+      if (!fzCharts[k]) fzCharts[k] = fzChart("fz-" + k, spec, FZ_COLORS[k]);
+      fzCharts[k].$x = Math.min(Math.max(fz.x[k], spec.range[0]), spec.range[1]);
+      fzCharts[k].update("none");
+      const val = k === "rain" ? fz.x[k].toFixed(1) : Math.round(fz.x[k]);
+      $("fz-t-" + k).innerHTML = `${spec.label} = <strong>${val}${k === "day_demand" ? "%" : " " + spec.unit}</strong>`;
+      $("fz-mu-" + k).innerHTML = Object.entries(fz.mu[k]).map(([s, v]) =>
+        `<span><i class="dot" style="background:${FZ_COLORS[k][s]}"></i>${s} <b>${v.toFixed(2)}</b></span>`).join("");
+    }
+    // output: faint term shapes + aggregated (clipped) area + centroid line
+    if (!fzCharts.out) {
+      fzCharts.out = fzChart("fz-out", FZ.output, FZ_COLORS.out, [{
+        label: "aggregated", data: [], borderColor: "rgba(56,189,248,.9)", backgroundColor: "rgba(56,189,248,.35)",
+        borderWidth: 1.5, pointRadius: 0, fill: "origin", tension: 0,
+      }]);
+      fzCharts.out.data.datasets.slice(1).forEach((d) => { d.borderWidth = 1; d.borderColor += "88"; });
+    }
+    const out = fzCharts.out;
+    out.data.datasets[0].data = FZ_U.map((u, i) => ({ x: u, y: fz.agg[i] }));
+    out.$x = fz.score; out.$xc = COLORS[fz.tier];
+    out.update("none");
+    $("fz-t-out").innerHTML = `Waste risk = <strong>${Math.round(fz.score)}/100</strong>`;
+    $("fz-result").innerHTML = `Centroid <strong>${Math.round(fz.score)}</strong> → <strong>${fz.tier}</strong> risk → expected demand <strong>${Math.round(fz.demand)}%</strong> <span class="muted">(${fz.x.source})</span>`;
+
+    const top = fz.fired.slice(0, 5);
+    $("fz-rules").innerHTML = top.map((r) => `<li>
+      <span>IF day demand is <b>${r.day_demand}</b> AND rain is <b>${r.rain}</b> AND air is <b>${r.air}</b> THEN risk is <em style="--tc:${FZ_COLORS.out[r.then]}">${r.then}</em></span>
+      <div class="rb"><div style="width:${r.strength * 100}%"></div></div><span class="rv">${r.strength.toFixed(2)}</span></li>`).join("")
+      + (fz.fired.length > 5 ? `<li><span class="muted small">+ ${fz.fired.length - 5} weaker rule${fz.fired.length - 5 > 1 ? "s" : ""} also firing</span></li>` : "");
+  }
+
+  function buildFuzzyModel() {
+    if (!FZ) return;
+    $("fz-m-rules").textContent = FZ.metrics.rules;
+    $("fz-m-agree").textContent = Math.round(FZ.metrics.tier_agreement_with_crisp * 1000) / 10 + "%";
+    $("fz-m-diff").textContent = fmt(FZ.metrics.mean_abs_demand_diff, 1);
+
+    // rule base matrix, one table per air-quality level
+    const dayT = Object.keys(FZ.inputs.day_demand.sets), rainT = Object.keys(FZ.inputs.rain.sets);
+    $("fz-matrix").innerHTML = Object.keys(FZ.inputs.air.sets).map((a) => `<table><caption>Air: ${a}</caption>
+      <tr><th>Day ↓ / Rain →</th>${rainT.map((r) => `<th>${r}</th>`).join("")}</tr>
+      ${dayT.slice().reverse().map((d) => `<tr><th>${d}</th>${rainT.map((r) => {
+        const rule = FZ.rules.find((x) => x.day_demand === d && x.rain === r && x.air === a);
+        return `<td style="background:${FZ_COLORS.out[rule.then]}" title="${rule.evidence}">${rule.then}</td>`;
+      }).join("")}</tr>`).join("")}</table>`).join("");
+
+    // crisp vs fuzzy as rain increases (normal weekday lunch, good air)
+    const rains = Array.from({ length: 101 }, (_, i) => i * 0.05);
+    const base = 100;
+    new Chart($("ch-sweep"), {
+      type: "line",
+      data: { datasets: [
+        { label: "Crisp rule (≥ 1 mm = heavy rain)", data: rains.map((r) => ({ x: r, y: r >= RULES.heavyRainMm ? base * M.heavy_rain : base })), borderColor: "#64748b", borderWidth: 2.5, pointRadius: 0, stepped: true },
+        { label: "Fuzzy logic (Mamdani)", data: rains.map((r) => ({ x: r, y: fuzzyInfer({ day_demand: base, rain: r, air: 10 }).demand })), borderColor: COLORS.brand, borderWidth: 3, pointRadius: 0, tension: .2 },
+      ] },
+      options: { ...baseOpts({ x: { type: "linear", min: 0, max: 5, title: { display: true, text: "Rain in the hour (mm)" } }, y: { min: 0, max: 105, ticks: pctTick, title: { display: true, text: "Expected demand" } } }),
+        interaction: { mode: "index", intersect: false } },
+    });
+  }
+
   function renderWeek() {
     const el = $("week");
     el.innerHTML = "";
@@ -621,7 +782,7 @@
     for (let k = 0; k < 7; k++) {
       const iso = addDays(start, k);
       const sc = scenarioFor(iso, state.time, { day: CFG.days[k] });
-      const dm = demand(sc), p = predict(encode(sc));
+      const dm = { value: usedDemand(demand(sc), fuzzyFor(sc)) }, p = predict(encode(sc));
       const selected = state.live ? iso === state.date : sc.day === state.day;
       const b = document.createElement("button");
       b.type = "button";
@@ -636,7 +797,8 @@
     $("week-note").textContent = `At ${fmtTime(state.time)} each day · ${state.live ? "live forecast & calendar" : `${state.calendar} · ${state.weather}`} · click a day`;
   }
 
-  function renderSlots(sc, dem, tier) {
+  function renderSlots(sc, usedDem, tier) {
+    const dem = { value: usedDem };
     let labels, normal, scen, active = -1;
     if (sc.meal === "Lunch" && sc.period.key === "lunch") {
       const keys = ["Before 12:00 pm", "12:00 to 1:00 pm", "1:00 to 2:00 pm", "After 2:00 pm"];
@@ -802,6 +964,7 @@
       window.scrollTo({ top: 0, behavior: "smooth" });
     });
 
+    buildFuzzyModel();
     $("m-base").textContent = S.baseline_weekday_probability;
     $("m-floor").textContent = Math.round(CFG.demand_floor * 100);
     $("m-low").textContent = Math.round(CFG.risk_thresholds.Low * 100);
@@ -826,7 +989,7 @@
     Chart.defaults.plugins.tooltip.borderWidth = 1;
     Chart.defaults.plugins.tooltip.padding = 10;
   } else {
-    window.Chart = function () { return { update() {}, data: {} }; }; // offline: skip charts
+    window.Chart = function () { return { update() {}, data: { datasets: [{}] } }; }; // offline: skip charts
   }
   document.querySelectorAll(".tab").forEach((t) => (t.onclick = () => showTab(t.dataset.tab)));
   buildControls();
