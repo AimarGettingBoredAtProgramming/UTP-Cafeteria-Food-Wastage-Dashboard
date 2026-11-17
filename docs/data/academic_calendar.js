@@ -1,31 +1,48 @@
 /* UTP academic calendar + public holidays used by the dashboard's live mode.
  *
- * Source: UTP Academic Calendar 2027 (Foundation, Undergraduate and MSc Taught Course),
- *         including the weekly calendars and "No Physical Class on Campus" notices.
- * The September 2026 semester is not in that document. Its dates are ESTIMATED by applying
- * the official Sept 2027 pattern (orientation, 12 lecture weeks, 3-day study break, 11 exam
- * days, break until the next orientation on 4 Jan 2027) to the 2026 dates.
- * Those periods are marked `estimated: true` and the dashboard labels them.
+ * Sources: UTP Academic Calendar 2026 and UTP Academic Calendar 2027
+ *          (Foundation, Undergraduate and MSc Taught Course), including the weekly
+ *          calendars, "blended learning" and "no physical class on campus" notices.
  *
  * Period types -> model "Academic calendar" input:
  *   "teaching"     -> Normal week      (week numbers count from the period start)
+ *   "blended"      -> Normal week      (shown as blended learning; classes partly online)
  *   "study"        -> Exam week        (students stay in to revise)
  *   "exam"         -> Exam week
  *   "break"        -> Holiday / break
  *   "orientation"  -> Holiday / break  (only new students on campus)
  *   "no_class"     -> Holiday / break  (official "no physical class on campus")
- * Public holidays -> Holiday / break. Specific periods (no_class) take priority over
- * the teaching period they sit inside. Dates are ISO (YYYY-MM-DD) and `end` is inclusive.
+ * Public holidays -> Holiday / break. no_class/blended take priority over the lecture period
+ * they sit inside. Dates are ISO (YYYY-MM-DD) and `end` is inclusive.
  */
 window.ACADEMIC_CALENDAR = {
-  source: "UTP Academic Calendar 2027 (Foundation, Undergraduate and MSc Taught Course)",
+  source: "UTP Academic Calendar 2026 & 2027 (Foundation, Undergraduate and MSc Taught Course)",
   periods: [
-    // ---- September 2026 semester: ESTIMATED from the Sept 2027 pattern ----
-    { semester: "Sept 2026 Semester", name: "Orientation week", type: "orientation", start: "2026-09-01", end: "2026-09-06", estimated: true },
-    { semester: "Sept 2026 Semester", name: "Lectures", type: "teaching", start: "2026-09-07", end: "2026-11-27", estimated: true },
-    { semester: "Sept 2026 Semester", name: "Study break", type: "study", start: "2026-11-28", end: "2026-11-30", estimated: true },
-    { semester: "Sept 2026 Semester", name: "Final examination", type: "exam", start: "2026-12-01", end: "2026-12-15", estimated: true },
-    { semester: "Sept 2026 Semester", name: "Semester break", type: "break", start: "2026-12-16", end: "2027-01-03", estimated: true },
+    // ---- January 2026 semester ----
+    { semester: "Jan 2026 Semester", name: "Orientation week", type: "orientation", start: "2026-01-05", end: "2026-01-11" },
+    { semester: "Jan 2026 Semester", name: "Blended learning", type: "blended", start: "2026-02-16", end: "2026-02-20" },
+    { semester: "Jan 2026 Semester", name: "Blended learning", type: "blended", start: "2026-03-18", end: "2026-03-19" },
+    { semester: "Jan 2026 Semester", name: "No physical class on campus (Hari Raya Aidilfitri)", type: "no_class", start: "2026-03-20", end: "2026-03-23" },
+    { semester: "Jan 2026 Semester", name: "Lectures", type: "teaching", start: "2026-01-12", end: "2026-04-03" },
+    { semester: "Jan 2026 Semester", name: "Study break", type: "study", start: "2026-04-04", end: "2026-04-08" },
+    { semester: "Jan 2026 Semester", name: "Final examination", type: "exam", start: "2026-04-09", end: "2026-04-21" },
+    { semester: "Jan 2026 Semester", name: "Semester break", type: "break", start: "2026-04-22", end: "2026-05-03" },
+
+    // ---- May 2026 semester ----
+    { semester: "May 2026 Semester", name: "Orientation week", type: "orientation", start: "2026-05-04", end: "2026-05-10" },
+    { semester: "May 2026 Semester", name: "Blended learning", type: "blended", start: "2026-05-25", end: "2026-05-29" },
+    { semester: "May 2026 Semester", name: "Lectures", type: "teaching", start: "2026-05-11", end: "2026-07-31" },
+    { semester: "May 2026 Semester", name: "Study break", type: "study", start: "2026-08-01", end: "2026-08-05" },
+    { semester: "May 2026 Semester", name: "Final examination", type: "exam", start: "2026-08-06", end: "2026-08-18" },
+    { semester: "May 2026 Semester", name: "Semester break", type: "break", start: "2026-08-19", end: "2026-08-31" },
+
+    // ---- September 2026 semester ----
+    { semester: "Sept 2026 Semester", name: "Orientation week", type: "orientation", start: "2026-09-01", end: "2026-09-06" },
+    { semester: "Sept 2026 Semester", name: "Blended learning", type: "blended", start: "2026-11-02", end: "2026-11-15" },
+    { semester: "Sept 2026 Semester", name: "Lectures", type: "teaching", start: "2026-09-07", end: "2026-11-27" },
+    { semester: "Sept 2026 Semester", name: "Study break", type: "study", start: "2026-11-28", end: "2026-12-02" },
+    { semester: "Sept 2026 Semester", name: "Final examination", type: "exam", start: "2026-12-03", end: "2026-12-15" },
+    { semester: "Sept 2026 Semester", name: "Semester break", type: "break", start: "2026-12-16", end: "2027-01-03" },
 
     // ---- January 2027 semester (official) ----
     { semester: "Jan 2027 Semester", name: "Orientation week", type: "orientation", start: "2027-01-04", end: "2027-01-10" },
@@ -53,7 +70,25 @@ window.ACADEMIC_CALENDAR = {
     { semester: "Sept 2027 Semester", name: "Semester break", type: "break", start: "2027-12-15", end: "2028-01-09" }
   ],
   public_holidays: [
-    // 2026 (Perak) - officeholidays.com
+    // 2026 - UTP Academic Calendar 2026 (JPM Hari Kelepasan Am 2026; subject to change)
+    { date: "2026-01-01", name: "New Year's Day" },
+    { date: "2026-02-01", name: "Thaipusam" },
+    { date: "2026-02-02", name: "Thaipusam (replacement holiday)" },
+    { date: "2026-02-17", name: "Chinese New Year" },
+    { date: "2026-02-18", name: "Chinese New Year" },
+    { date: "2026-03-06", name: "Nuzul Al-Quran (replacement holiday)" },
+    { date: "2026-03-07", name: "Nuzul Al-Quran" },
+    { date: "2026-03-21", name: "Hari Raya Aidilfitri" },
+    { date: "2026-03-22", name: "Hari Raya Aidilfitri" },
+    { date: "2026-05-01", name: "Labour Day" },
+    { date: "2026-05-27", name: "Hari Raya Aidiladha" },
+    { date: "2026-05-31", name: "Wesak Day" },
+    { date: "2026-06-01", name: "Agong's Birthday" },
+    { date: "2026-06-02", name: "Wesak Day (replacement holiday)" },
+    { date: "2026-06-17", name: "Awal Muharram" },
+    { date: "2026-08-25", name: "Maulidur Rasul" },
+    { date: "2026-08-31", name: "National Day" },
+    { date: "2026-09-16", name: "Malaysia Day" },
     { date: "2026-11-06", name: "Birthday of the Sultan of Perak" },
     { date: "2026-11-08", name: "Deepavali" },
     { date: "2026-11-09", name: "Deepavali (replacement holiday)" },

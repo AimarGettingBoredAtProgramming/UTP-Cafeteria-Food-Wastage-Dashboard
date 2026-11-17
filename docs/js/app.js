@@ -49,17 +49,21 @@
   /* ------------------------------------------------------------ calendar */
   function calendarFor(iso) {
     const inside = (CAL.periods || []).filter((x) => x.start <= iso && iso <= x.end);
-    // the most specific period wins: a "no physical class" week sits inside the lecture period
-    const p = inside.find((x) => x.type === "no_class") || inside[0];
+    // the most specific period wins: no-class and blended weeks sit inside the lecture period
+    const p = inside.find((x) => x.type === "no_class") || inside.find((x) => x.type === "blended") || inside[0];
+    const lectureWeek = () => {
+      const t = inside.find((x) => x.type === "teaching");
+      return t ? Math.floor((toDate(iso) - toDate(t.start)) / 864e5 / 7) + 1 : null;
+    };
     const est = p && p.estimated;
     const semLine = (p ? p.semester : "") + (est ? " · estimated dates" : "");
     const hol = (CAL.public_holidays || []).find((h) => h.date === iso);
     if (hol) return { calendar: "Holiday / break", title: hol.name, sub: "Public holiday" + (p ? ` · ${p.semester}` : ""), ico: "🏖️", estimated: false };
     if (!p) return { calendar: "Normal week", title: "No calendar entry", sub: "Treated as a normal week", ico: "📘", estimated: false };
-    if (p.type === "teaching") {
-      const wk = Math.floor((toDate(iso) - toDate(p.start)) / 864e5 / 7) + 1;
-      return { calendar: "Normal week", title: `Lecture week ${wk}`, sub: semLine, ico: "📘", estimated: est };
-    }
+    if (p.type === "teaching")
+      return { calendar: "Normal week", title: `Lecture week ${lectureWeek()}`, sub: semLine, ico: "📘", estimated: est };
+    if (p.type === "blended")
+      return { calendar: "Normal week", title: `Lecture week ${lectureWeek()} · blended learning`, sub: semLine + " · some classes online", ico: "💻", estimated: est };
     const map = {
       study: ["Exam week", "📚"], exam: ["Exam week", "📝"], break: ["Holiday / break", "🏖️"],
       orientation: ["Holiday / break", "🎒"], no_class: ["Holiday / break", "🏠"],
@@ -521,8 +525,7 @@
     $("r-rain").textContent = RULES.heavyRainMm;
     $("r-prob").textContent = RULES.heavyRainProb;
     $("r-pm").textContent = RULES.hazePm25;
-    $("cal-verify").innerHTML = `The Jan, May and Sept 2027 semesters, "no physical class" weeks and holidays come from the official ${CAL.source || "UTP calendar"}. ` +
-      `<span class="warn-text">The Sept 2026 semester isn't in that document, so its dates are estimated from the 2027 pattern.</span>`;
+    $("cal-verify").textContent = `All semesters (Jan 2026 to Sept 2027), blended-learning and no-physical-class weeks, and public holidays come from the official ${CAL.source || "UTP academic calendar"}. Blended-learning weeks stay as normal weeks, because students living in the villages still eat on campus.`;
   }
 
   /* ---------------------------------------------------------------- model */

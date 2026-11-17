@@ -87,7 +87,7 @@ The low-confidence cases sit close to a tier boundary. The dashboard shows that 
 
 **Just view the dashboard.** Open `docs/index.html` in a browser. It needs internet access for live weather, the charts and the fonts. If you're offline, set the weather by hand.
 
-**Academic calendar.** `docs/data/academic_calendar.js` holds the official **UTP Academic Calendar 2027** (Jan, May and Sept 2027 semesters), including orientation weeks, "no physical class on campus" weeks and public holidays. The Sept 2026 semester isn't in that document, so its dates are **estimated** from the 2027 pattern: lectures 7 Sep – 27 Nov, study break 28–30 Nov, exams 1–15 Dec, break until 3 Jan 2027. The dashboard labels these dates as estimated.
+**Academic calendar.** `docs/data/academic_calendar.js` holds the official **UTP Academic Calendars 2026 and 2027** for Foundation, Undergraduate and MSc taught courses: every semester from Jan 2026 to Sept 2027, orientation weeks, blended-learning and "no physical class on campus" weeks, and public holidays. When UTP publishes a new calendar, add its periods to this file.
 
 **Rebuild the data and model:**
 
@@ -134,7 +134,6 @@ docs/                           the dashboard (static HTML/CSS/JS)
 - **Independence assumption.** Combined conditions are multiplied together. Demand is floored at 20%.
 - **Illustrative energy and cost figures.** Food per portion, cooking kWh, warmer power and the grid CO₂ factor are assumptions. They can be edited on the *AI model & method* tab.
 - **Forecast uncertainty.** Rain timing in the tropics is hard to forecast, and weather beyond 16 days (haze beyond about 5) falls back to *Clear*.
-- **Estimated Sept 2026 semester dates.** The official 2027 calendar is used from January 2027 onward.
 - **Cannot foresee sudden events,** such as campus programmes or outages.
 
 **Next step:** log real cooked, sold and leftover numbers with one or two vendors for 2–4 weeks, then retrain on that data.
@@ -153,7 +152,7 @@ Lecturer: Dr. Farahida Hanim binti Mausor
 ### Data sources & references
 
 - Weather and air-quality forecasts: [Open-Meteo](https://open-meteo.com/) (CC BY 4.0).
-- Universiti Teknologi PETRONAS. *Academic Calendar 2027: Foundation, Undergraduate, and MSc Taught Course.*
+- Universiti Teknologi PETRONAS. *Academic Calendar 2026* and *Academic Calendar 2027: Foundation, Undergraduate, and MSc Taught Course.*
 
 - Achariam, N. (2026, June). *Malaysians throw away 6,000 tonnes of edible food daily.* New Straits Times.
 - Ali, N. E. H., et al. (2022). Assessment of food waste and its causes in Universiti Teknologi Mara Perak Branch, Seri Iskandar Campus, Malaysia. *IJARBSS, 12*(8).
