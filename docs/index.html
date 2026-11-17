@@ -4,41 +4,64 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>UTP Cafeteria Batch Advisor</title>
-  <meta name="description" content="AI batch-cooking advisor that helps UTP cafeteria vendors cut food waste and kitchen energy use. Prototype built from a survey of 56 UTP students.">
+  <meta name="description" content="Batch-cooking advisor that helps UTP cafeteria vendors cut food waste and kitchen energy use, using live weather, the academic calendar and a decision-tree model.">
+  <meta name="theme-color" content="#070b14">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍛</text></svg>">
 </head>
 <body>
+  <div class="glow g1" aria-hidden="true"></div>
+  <div class="glow g2" aria-hidden="true"></div>
+
   <header class="topbar">
-    <div class="brand">
-      <div class="logo" aria-hidden="true">🍛</div>
-      <div>
-        <h1>UTP Cafeteria Batch Advisor</h1>
-        <p class="subtitle">AI food-wastage &amp; kitchen-energy dashboard for cafeteria vendors</p>
+    <div class="topbar-inner">
+      <div class="brand">
+        <div class="logo" aria-hidden="true">🍛</div>
+        <div>
+          <h1>UTP Cafeteria <span class="grad">Batch Advisor</span></h1>
+          <p class="subtitle">Cut food waste &amp; kitchen energy with demand forecasts</p>
+        </div>
+      </div>
+      <div class="status-pills">
+        <span class="pill" id="pill-weather"><span class="dot"></span>Weather: connecting…</span>
+        <span class="pill" id="pill-cal"><span class="dot"></span>Calendar</span>
       </div>
     </div>
     <nav class="tabs" role="tablist">
       <button class="tab active" data-tab="predict" role="tab">Daily advisor</button>
       <button class="tab" data-tab="insights" role="tab">Survey insights</button>
-      <button class="tab" data-tab="model" role="tab">AI model &amp; method</button>
+      <button class="tab" data-tab="model" role="tab">Model &amp; method</button>
     </nav>
   </header>
 
-  <div class="sim-banner" role="note">
-    <strong>Simulated prototype</strong> — predictions are estimates derived from a survey of
-    <span data-bind="n">56</span> UTP students (Nov 2026), not real sales records. The vendor always makes the final decision.
-  </div>
-
   <main>
+    <div class="sim-banner" role="note">
+      <span class="tag">Prototype</span>
+      Demand estimates come from a survey of <span data-bind="n">56</span> UTP students (Nov 2026), not real sales records.
+      Weather is live from Open-Meteo. The vendor always makes the final decision.
+    </div>
+
     <!-- ===================== DAILY ADVISOR ===================== -->
     <section id="tab-predict" class="tab-panel active">
       <div class="advisor-grid">
-        <!-- Inputs -->
         <aside class="card inputs">
-          <h2>Plan a service</h2>
+          <div class="inputs-head">
+            <h2>Plan a service</h2>
+            <label class="toggle compact" title="Fill day, calendar and weather automatically">
+              <input type="checkbox" id="live" checked>
+              <span class="track"><span class="thumb"></span></span>
+              <span>Live data</span>
+            </label>
+          </div>
+
+          <label class="field-label" for="date">Date</label>
+          <div class="date-row">
+            <input type="date" id="date">
+            <button type="button" class="ghost-btn" id="today-btn">Today</button>
+          </div>
 
           <label class="field-label" for="cafe">Cafeteria</label>
           <select id="cafe">
@@ -47,19 +70,19 @@
             <option>Village 5 Cafeteria</option><option>Village 6 Cafeteria</option>
             <option>Village 7 Cafeteria</option><option>Other campus outlet</option>
           </select>
-          <p class="hint">All outlets use the pooled survey data (per-village samples are too small).</p>
 
-          <span class="field-label">Day</span>
+          <span class="field-label">Day <span class="badge" id="b-day"></span></span>
           <div class="chips" id="day-chips"></div>
 
           <span class="field-label">Meal service</span>
           <div class="segmented" id="meal-seg"></div>
 
-          <span class="field-label">Academic calendar</span>
+          <span class="field-label">Academic calendar <span class="badge" id="b-cal"></span></span>
           <div class="segmented" id="cal-seg"></div>
 
-          <span class="field-label">Weather forecast</span>
+          <span class="field-label">Weather <span class="badge" id="b-wx"></span></span>
           <div class="segmented" id="wx-seg"></div>
+          <button type="button" class="link-btn" id="reset-live" hidden>↺ Back to live calendar &amp; weather</button>
 
           <label class="toggle">
             <input type="checkbox" id="short-break">
@@ -67,35 +90,53 @@
             <span>Most classes have short breaks (&lt; 1 hour) today</span>
           </label>
 
-          <label class="field-label" for="batch">Your usual batch on a normal weekday</label>
+          <label class="field-label" for="batch">Usual batch on a normal weekday</label>
           <div class="batch-row">
             <input type="range" id="batch-range" min="20" max="400" step="5" value="120">
             <div class="num-wrap"><input type="number" id="batch" min="1" max="2000" value="120"><span>portions</span></div>
           </div>
         </aside>
 
-        <!-- Results -->
         <div class="results">
+          <div class="live-strip">
+            <div class="card live-card" id="wx-card">
+              <div class="live-ico" id="wx-ico">☀️</div>
+              <div class="live-body">
+                <span class="live-lbl">Weather · <span id="wx-when">lunch window</span></span>
+                <strong id="wx-title">Loading forecast…</strong>
+                <span class="live-sub" id="wx-sub">Open-Meteo · UTP, Seri Iskandar</span>
+              </div>
+            </div>
+            <div class="card live-card" id="cal-card">
+              <div class="live-ico" id="cal-ico">📘</div>
+              <div class="live-body">
+                <span class="live-lbl">Academic calendar</span>
+                <strong id="cal-title">–</strong>
+                <span class="live-sub" id="cal-sub">–</span>
+              </div>
+            </div>
+          </div>
+
           <div class="card risk-card" id="risk-card">
             <div class="risk-top">
-              <div>
-                <p class="eyebrow" id="scenario-title">Wednesday lunch · Normal week · Clear</p>
+              <div class="risk-text">
+                <p class="eyebrow" id="scenario-title">–</p>
                 <h2 class="risk-title"><span id="risk-tier">Low</span> surplus-waste risk</h2>
                 <p class="risk-msg" id="risk-msg"></p>
+                <div class="confidence">
+                  <span>Model confidence</span>
+                  <div class="bar"><div id="conf-bar"></div></div>
+                  <strong id="conf-pct">100%</strong>
+                </div>
               </div>
-              <div class="gauge" id="gauge" aria-label="Expected demand">
+              <div class="gauge" aria-label="Expected demand">
                 <svg viewBox="0 0 120 70" aria-hidden="true">
                   <path d="M10 62 A50 50 0 0 1 110 62" class="gauge-bg"/>
                   <path d="M10 62 A50 50 0 0 1 110 62" class="gauge-fg" id="gauge-fg"/>
                 </svg>
-                <div class="gauge-val"><span id="demand-pct">100</span>%</div>
+                <div class="gauge-val"><span id="demand-pct">100</span><small>%</small></div>
                 <div class="gauge-lbl">of normal-day demand</div>
               </div>
-            </div>
-            <div class="confidence">
-              <span>AI confidence</span>
-              <div class="bar"><div id="conf-bar"></div></div>
-              <strong id="conf-pct">100%</strong>
             </div>
           </div>
 
@@ -103,17 +144,17 @@
             <div class="card kpi primary">
               <span class="kpi-lbl">Recommended to cook</span>
               <span class="kpi-val" id="kpi-rec">120</span>
-              <span class="kpi-sub" id="kpi-range">range 108 – 120 portions</span>
+              <span class="kpi-sub" id="kpi-range">portions</span>
             </div>
             <div class="card kpi">
               <span class="kpi-lbl">Portions not wasted</span>
               <span class="kpi-val" id="kpi-saved">0</span>
-              <span class="kpi-sub">vs cooking your usual batch</span>
+              <span class="kpi-sub">vs your usual batch</span>
             </div>
             <div class="card kpi">
               <span class="kpi-lbl">Food saved</span>
               <span class="kpi-val" id="kpi-kg">0 kg</span>
-              <span class="kpi-sub" id="kpi-rm">≈ RM 0 ingredient cost</span>
+              <span class="kpi-sub" id="kpi-rm">≈ RM 0 ingredients</span>
             </div>
             <div class="card kpi">
               <span class="kpi-lbl">Energy saved</span>
@@ -128,12 +169,20 @@
               <ol class="plan" id="plan"></ol>
             </div>
             <div class="card">
-              <h3>Why the AI says this</h3>
-              <p class="muted small">Survey factors applied to a normal weekday:</p>
+              <h3>Why the model says this</h3>
+              <p class="muted small">Survey factors applied to a normal weekday</p>
               <div id="factors" class="factors"></div>
-              <p class="muted small" style="margin-top:14px">Decision-tree path:</p>
+              <p class="muted small mt">Decision-tree path</p>
               <ol id="path" class="path"></ol>
             </div>
+          </div>
+
+          <div class="card">
+            <div class="card-head">
+              <h3>Next 7 days</h3>
+              <span class="muted small" id="week-note">Live forecast &amp; calendar · click a day</span>
+            </div>
+            <div class="week" id="week"></div>
           </div>
 
           <div class="card">
@@ -144,15 +193,7 @@
             <div class="chart-box"><canvas id="slot-chart"></canvas></div>
           </div>
 
-          <div class="card">
-            <div class="card-head">
-              <h3>Week outlook</h3>
-              <span class="muted small" id="week-note">Same calendar, weather &amp; meal · click a day</span>
-            </div>
-            <div class="week" id="week"></div>
-          </div>
-
-          <div class="card tips" id="tips"></div>
+          <div class="tips" id="tips"></div>
         </div>
       </div>
     </section>
@@ -164,21 +205,21 @@
         <div class="card stat"><span class="stat-val" id="st-rain">68%</span><span class="stat-lbl">unlikely to come when it rains heavily</span></div>
         <div class="card stat"><span class="stat-val" id="st-holiday">77%</span><span class="stat-lbl">never or rarely stay on campus during breaks</span></div>
         <div class="card stat"><span class="stat-val" id="st-plate">91%</span><span class="stat-lbl">rarely or never leave food on their plate</span></div>
-        <div class="card stat"><span class="stat-val" id="st-forecast">77%</span><span class="stat-lbl">would change plans if a forecast said "busy"</span></div>
+        <div class="card stat"><span class="stat-val" id="st-forecast">77%</span><span class="stat-lbl">would change plans if told it's busy</span></div>
       </div>
 
       <div class="callout">
-        <strong>Key takeaway:</strong> students waste little food on their plates, but their attendance swings hard with
-        weather and the academic calendar. The waste lever is therefore <em>how much vendors cook</em> — exactly what this
-        advisor targets.
+        <strong>Key takeaway</strong> Students waste little food on their plates, but their attendance swings hard with
+        weather and the academic calendar. So the way to cut waste is <em>how much vendors cook</em>, and that is what this
+        advisor helps with.
       </div>
 
       <div class="insight-grid">
         <div class="card"><h3>Expected demand vs a normal weekday</h3><p class="muted small">Multipliers used by the model</p><div class="chart-box tall"><canvas id="ch-mult"></canvas></div></div>
         <div class="card"><h3>How likely are you to eat at your cafeteria…</h3><p class="muted small">Q7–Q9, Q12–Q13</p><div class="chart-box tall"><canvas id="ch-likert"></canvas></div></div>
         <div class="card"><h3>When students eat lunch</h3><p class="muted small">Q5</p><div class="chart-box"><canvas id="ch-lunch"></canvas></div></div>
-        <div class="card"><h3>Meals eaten at the cafeteria</h3><p class="muted small">Q4, multiple answers</p><div class="chart-box"><canvas id="ch-meals"></canvas></div></div>
-        <div class="card"><h3>Days per week at preferred cafeteria</h3><p class="muted small">Q3 — sets the weekday baseline</p><div class="chart-box"><canvas id="ch-days"></canvas></div></div>
+        <div class="card"><h3>Meals eaten at the cafeteria</h3><p class="muted small">Q4 · multiple answers</p><div class="chart-box"><canvas id="ch-meals"></canvas></div></div>
+        <div class="card"><h3>Days per week at preferred cafeteria</h3><p class="muted small">Q3 · sets the weekday baseline</p><div class="chart-box"><canvas id="ch-days"></canvas></div></div>
         <div class="card"><h3>Short class break (&lt; 1 hour)</h3><p class="muted small">Q11</p><div class="chart-box"><canvas id="ch-break"></canvas></div></div>
         <div class="card"><h3>Main reason for leaving food</h3><p class="muted small">Q15</p><div class="chart-box"><canvas id="ch-reason"></canvas></div></div>
         <div class="card"><h3>If a forecast said "very busy"…</h3><p class="muted small">Q16</p><div class="chart-box"><canvas id="ch-forecast"></canvas></div></div>
@@ -190,23 +231,25 @@
     <!-- ===================== MODEL & METHOD ===================== -->
     <section id="tab-model" class="tab-panel">
       <div class="card">
-        <h3>How the prediction is made</h3>
+        <h3>How a prediction is made</h3>
         <div class="flow">
           <div class="flow-step"><span class="flow-n">1</span><strong>Student survey</strong><span>56 anonymous responses, 16 questions</span></div>
           <div class="flow-arrow">→</div>
-          <div class="flow-step"><span class="flow-n">2</span><strong>Demand multipliers</strong><span>Likert answers → probability vs normal weekday</span></div>
+          <div class="flow-step"><span class="flow-n">2</span><strong>Demand multipliers</strong><span>Likert answers → probability vs a normal weekday</span></div>
           <div class="flow-arrow">→</div>
-          <div class="flow-step"><span class="flow-n">3</span><strong>Simulated history</strong><span><span id="m-rows">5,040</span> service days across 252 scenarios, with day-to-day noise</span></div>
+          <div class="flow-step"><span class="flow-n">3</span><strong>Simulated history</strong><span><span id="m-rows">5,040</span> service days, 252 scenarios, day-to-day noise</span></div>
           <div class="flow-arrow">→</div>
           <div class="flow-step"><span class="flow-n">4</span><strong>Decision tree</strong><span>Learns Low / Medium / High surplus-waste risk</span></div>
           <div class="flow-arrow">→</div>
-          <div class="flow-step"><span class="flow-n">5</span><strong>Vendor advice</strong><span>Batch size, cooking plan, energy tips</span></div>
+          <div class="flow-step"><span class="flow-n">5</span><strong>Live inputs</strong><span>Open-Meteo forecast + UTP calendar pick the scenario</span></div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-step"><span class="flow-n">6</span><strong>Vendor advice</strong><span>Batch size, cooking plan, energy tips</span></div>
         </div>
       </div>
 
       <div class="stat-row">
         <div class="card stat"><span class="stat-val" id="m-acc">–</span><span class="stat-lbl">accuracy on held-out test days</span></div>
-        <div class="card stat"><span class="stat-val" id="m-agree">–</span><span class="stat-lbl">agreement with the survey rule on all 252 scenarios</span></div>
+        <div class="card stat"><span class="stat-val" id="m-agree">–</span><span class="stat-lbl">agreement with the survey rule (252 scenarios)</span></div>
         <div class="card stat"><span class="stat-val" id="m-leaves">–</span><span class="stat-lbl">decision rules (tree leaves)</span></div>
         <div class="card stat"><span class="stat-val" id="m-depth">–</span><span class="stat-lbl">tree depth</span></div>
       </div>
@@ -223,46 +266,57 @@
 
       <div class="two-col">
         <div class="card">
-          <h3>Assumptions <span class="muted small">(editable)</span></h3>
-          <div class="assume">
-            <label>Food per portion (kg)<input type="number" id="a-kg" step="0.05" value="0.35"></label>
-            <label>Ingredient cost per portion (RM)<input type="number" id="a-rm" step="0.5" value="4"></label>
-            <label>Cooking energy per portion (kWh)<input type="number" id="a-kwh" step="0.05" value="0.4"></label>
-            <label>Food-warmer power (kW)<input type="number" id="a-warm" step="0.1" value="1.5"></label>
-            <label>Off-peak idle hours that can be cut<input type="number" id="a-hrs" step="0.5" value="2"></label>
-            <label>Grid emission factor (kg CO₂/kWh)<input type="number" id="a-co2" step="0.01" value="0.58"></label>
-          </div>
-          <p class="muted small">Illustrative values for the energy and cost estimates. Replace them with measured vendor figures when available.</p>
+          <h3>Live data rules</h3>
           <ul class="list small">
-            <li>Likert answers are scored 0, 0.25, 0.5, 0.75, 1 (very unlikely → very likely).</li>
-            <li>Normal-weekday baseline = days per week eaten at the cafeteria (capped at 5) ÷ 5 = <strong id="m-base">0.72</strong>.</li>
-            <li>Factors are treated as independent and multiplied; demand is floored at <span id="m-floor">20</span>%.</li>
-            <li>Risk tiers: Low ≥ <span id="m-low">80</span>% · Medium ≥ <span id="m-med">55</span>% · High below.</li>
+            <li><strong>Weather:</strong> the <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> hourly forecast for UTP (4.385° N, 100.979° E), up to 16 days ahead. Meal windows are lunch 11:00–15:00 and dinner 17:00–21:00.</li>
+            <li><strong>Heavy rain:</strong> at least <span id="r-rain">2.5</span> mm of rain in the meal window, or a rain chance of at least <span id="r-prob">75</span>% with 1 mm or more.</li>
+            <li><strong>Haze:</strong> average PM2.5 of at least <span id="r-pm">35</span> µg/m³ in the meal window (Malaysian 24-hour standard), from the Open-Meteo air-quality forecast (about 5 days ahead).</li>
+            <li><strong>Calendar:</strong> exam weeks, study week, breaks and Perak public holidays come from <code>docs/data/academic_calendar.js</code>. <span id="cal-verify"></span></li>
+            <li>Beyond the forecast range, or if you're offline, the weather falls back to <em>Clear</em>. You can override any live value by hand.</li>
           </ul>
         </div>
         <div class="card">
-          <h3>Limitations &amp; ethics</h3>
-          <ul class="list">
-            <li><strong>Small, skewed sample:</strong> 56 students, mostly Year 2 and Village 5 residents.</li>
-            <li><strong>Stated, not observed behaviour:</strong> students reported what they would do.</li>
-            <li><strong>No sales data:</strong> training data is simulated from survey weights, so the tree learns survey-derived rules.</li>
-            <li><strong>Independence assumption:</strong> combined conditions (e.g. rainy exam Friday) may be over- or under-estimated.</li>
-            <li><strong>Cannot predict sudden events</strong> such as campus programmes or outages.</li>
-            <li><strong>Ethics:</strong> anonymous, voluntary survey; no names or identifiable data; outputs labelled as estimates; the vendor makes the final call.</li>
-            <li><strong>Next step:</strong> log real cooked / sold / leftover numbers with 1–2 vendors for 2–4 weeks and retrain.</li>
+          <h3>Assumptions <span class="muted small">(editable)</span></h3>
+          <div class="assume">
+            <label>Food per portion (kg)<input type="number" id="a-kg" step="0.05" value="0.35"></label>
+            <label>Ingredient cost / portion (RM)<input type="number" id="a-rm" step="0.5" value="4"></label>
+            <label>Cooking energy / portion (kWh)<input type="number" id="a-kwh" step="0.05" value="0.4"></label>
+            <label>Food-warmer power (kW)<input type="number" id="a-warm" step="0.1" value="1.5"></label>
+            <label>Off-peak idle hours cut<input type="number" id="a-hrs" step="0.5" value="2"></label>
+            <label>Grid factor (kg CO₂/kWh)<input type="number" id="a-co2" step="0.01" value="0.58"></label>
+          </div>
+          <ul class="list small">
+            <li>Likert answers are scored 0, 0.25, 0.5, 0.75 and 1 (very unlikely → very likely).</li>
+            <li>The normal-weekday baseline is days eaten at the cafeteria per week (capped at 5) ÷ 5 = <strong id="m-base">0.72</strong>.</li>
+            <li>Factors are multiplied together, and demand never goes below <span id="m-floor">20</span>%.</li>
+            <li>Risk tiers: Low ≥ <span id="m-low">80</span>% · Medium ≥ <span id="m-med">55</span>% · High below.</li>
           </ul>
         </div>
+      </div>
+
+      <div class="card">
+        <h3>Limitations &amp; ethics</h3>
+        <ul class="list cols">
+          <li><strong>Small, skewed sample:</strong> 56 students, mostly Year 2 and Village 5 residents.</li>
+          <li><strong>Stated, not observed, behaviour:</strong> students reported what they would do.</li>
+          <li><strong>No sales data:</strong> the training data is simulated from survey weights.</li>
+          <li><strong>Independence assumption:</strong> combined conditions may be over- or under-estimated.</li>
+          <li><strong>Forecasts can be wrong:</strong> rain timing in particular is uncertain, so treat the advice as a guide.</li>
+          <li><strong>Ethics:</strong> the survey was anonymous and voluntary, with no identifiable data. All outputs are estimates, and the vendor decides.</li>
+          <li><strong>Next step:</strong> log real cooked, sold and leftover counts with 1–2 vendors for 2–4 weeks, then retrain on that data.</li>
+        </ul>
       </div>
     </section>
   </main>
 
   <footer class="foot">
-    TEB2023 Artificial Intelligence · Group 13 · Universiti Teknologi PETRONAS · Supports SDG 12 &amp; SDG 7 ·
-    model data generated <span id="gen-date"></span>
+    TEB2023 Artificial Intelligence · Group 13 · Universiti Teknologi PETRONAS · SDG 12 &amp; SDG 7 ·
+    Weather data by <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> (CC BY 4.0) · model built <span id="gen-date"></span>
   </footer>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <script src="data/dashboard_data.js"></script>
+  <script src="data/academic_calendar.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

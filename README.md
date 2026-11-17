@@ -15,7 +15,13 @@ Cafeteria vendors at UTP decide how much to cook from routine and guesswork. Whe
 
 ## The solution
 
-The vendor picks a **day**, **meal**, **academic calendar**, **weather** and whether classes have **short breaks**, then enters their **usual batch size**. The dashboard returns:
+The vendor picks a **date** and **meal** and enters their **usual batch size**. In **live mode** the dashboard fills in the rest automatically:
+
+- **Weather:** the live [Open-Meteo](https://open-meteo.com/) hourly forecast for UTP (up to 16 days ahead). Heavy rain means at least 2.5 mm in the meal window. Haze means PM2.5 of at least 35 µg/m³, from the Open-Meteo air-quality forecast.
+- **Academic calendar:** UTP teaching weeks, study week, final exams and the semester break, plus Perak public holidays, from [`docs/data/academic_calendar.js`](docs/data/academic_calendar.js).
+- **Day of week:** taken from the date.
+
+Any live value can be overridden by hand, or live mode can be switched off to test what-if scenarios. The dashboard returns:
 
 | Output | Example (Friday lunch, heavy rain, usual batch 120) |
 |---|---|
@@ -25,15 +31,17 @@ The vendor picks a **day**, **meal**, **academic calendar**, **weather** and whe
 | Cooking & energy plan | 24 portions first → small top-ups → switch off unused warmers after 2:30 PM |
 | Estimated savings | 80 portions · 28 kg food · ≈ 35 kWh |
 | Explanation | Survey factors applied + the decision-tree path |
-| Week outlook | Risk tier for every day of the week |
+| Next 7 days | Live forecast + calendar risk tier for each upcoming day |
 
 The dashboard has three tabs: **Daily advisor**, **Survey insights** (all survey charts) and **AI model & method** (accuracy, confusion matrix, feature importance, test scenarios, assumptions, limitations).
 
 ## How it works
 
 ```
-Student survey (n=56) ─► Demand multipliers ─► Simulated service history ─► Decision tree ─► Vendor advice
-   16 questions            Likert → probability     252 scenarios × 20 days       Low/Med/High       batch, plan, energy
+Student survey (n=56) ─► Demand multipliers ─► Simulated service history ─► Decision tree ─┐
+   16 questions            Likert → probability     252 scenarios × 20 days       Low/Med/High  │
+                                                                                                ├─► Vendor advice
+Live inputs: Open-Meteo weather + air quality, UTP academic calendar, Perak holidays ───────────┘   batch, plan, energy
 ```
 
 1. **Survey → multipliers** (`src/analyze_survey.py`). Likert answers are scored 0 / 0.25 / 0.5 / 0.75 / 1. Each condition is compared with a normal-weekday baseline: days per week at the cafeteria (capped at 5) ÷ 5 = 0.72.
@@ -77,7 +85,9 @@ The low-confidence cases sit close to a tier boundary. The dashboard shows that 
 
 ## Run it
 
-**Just view the dashboard.** Open `docs/index.html` in a browser. It needs internet access for the Chart.js charts and the web font.
+**Just view the dashboard.** Open `docs/index.html` in a browser. It needs internet access for live weather, the charts and the fonts. If you're offline, set the weather by hand.
+
+**Update the academic calendar.** Edit `docs/data/academic_calendar.js` with the official UTP Registry dates, then set `verified: true`. The dates included now are **estimated** from the course timeline (Week 1 = 14 Sep 2026), and the dashboard says so.
 
 **Rebuild the data and model:**
 
@@ -111,7 +121,9 @@ outputs/
   decision_tree_rules.txt       full tree as readable if/else rules
   test_scenarios.csv            test scenario results
 docs/                           the dashboard (static HTML/CSS/JS)
-  index.html, css/, js/app.js, data/dashboard_data.js
+  index.html, css/, js/app.js
+  data/dashboard_data.js        trained model + survey summary (generated)
+  data/academic_calendar.js     UTP semester periods + Perak public holidays (edit by hand)
 ```
 
 ## Limitations
@@ -121,6 +133,8 @@ docs/                           the dashboard (static HTML/CSS/JS)
 - **No sales or leftover records.** The training labels are simulated from survey weights, so the tree learns survey-derived rules.
 - **Independence assumption.** Combined conditions are multiplied together. Demand is floored at 20%.
 - **Illustrative energy and cost figures.** Food per portion, cooking kWh, warmer power and the grid CO₂ factor are assumptions. They can be edited on the *AI model & method* tab.
+- **Forecast uncertainty.** Rain timing in the tropics is hard to forecast, and weather beyond 16 days (haze beyond about 5) falls back to *Clear*.
+- **Estimated semester dates** until they're replaced with the official UTP calendar.
 - **Cannot foresee sudden events,** such as campus programmes or outages.
 
 **Next step:** log real cooked, sold and leftover numbers with one or two vendors for 2–4 weeks, then retrain on that data.
@@ -136,7 +150,9 @@ Aqil bin Abdul Samad · Ahmad Ammir Harees bin Ahmad Azimi · Dzikra Ahmad Rizal
 
 Lecturer: Dr. Farahida Hanim binti Mausor
 
-### References
+### Data sources & references
+
+- Weather and air-quality forecasts: [Open-Meteo](https://open-meteo.com/) (CC BY 4.0).
 
 - Achariam, N. (2026, June). *Malaysians throw away 6,000 tonnes of edible food daily.* New Straits Times.
 - Ali, N. E. H., et al. (2022). Assessment of food waste and its causes in Universiti Teknologi Mara Perak Branch, Seri Iskandar Campus, Malaysia. *IJARBSS, 12*(8).
