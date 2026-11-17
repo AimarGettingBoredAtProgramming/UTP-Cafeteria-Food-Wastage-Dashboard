@@ -1,0 +1,133 @@
+|--- holiday <= 0.50
+|   |--- heavy_rain <= 0.50
+|   |   |--- haze <= 0.50
+|   |   |   |--- is_weekend <= 0.50
+|   |   |   |   |--- is_friday <= 0.50
+|   |   |   |   |   |--- is_lunch <= 0.50
+|   |   |   |   |   |   |--- exam_week <= 0.50
+|   |   |   |   |   |   |   |--- class: Low
+|   |   |   |   |   |   |--- exam_week >  0.50
+|   |   |   |   |   |   |   |--- short_break <= 0.50
+|   |   |   |   |   |   |   |   |--- class: Low
+|   |   |   |   |   |   |   |--- short_break >  0.50
+|   |   |   |   |   |   |   |   |--- class: Low
+|   |   |   |   |   |--- is_lunch >  0.50
+|   |   |   |   |   |   |--- short_break <= 0.50
+|   |   |   |   |   |   |   |--- exam_week <= 0.50
+|   |   |   |   |   |   |   |   |--- class: Low
+|   |   |   |   |   |   |   |--- exam_week >  0.50
+|   |   |   |   |   |   |   |   |--- class: Low
+|   |   |   |   |   |   |--- short_break >  0.50
+|   |   |   |   |   |   |   |--- exam_week <= 0.50
+|   |   |   |   |   |   |   |   |--- class: Medium
+|   |   |   |   |   |   |   |--- exam_week >  0.50
+|   |   |   |   |   |   |   |   |--- class: High
+|   |   |   |   |--- is_friday >  0.50
+|   |   |   |   |   |--- short_break <= 0.50
+|   |   |   |   |   |   |--- exam_week <= 0.50
+|   |   |   |   |   |   |   |--- is_lunch <= 0.50
+|   |   |   |   |   |   |   |   |--- class: Medium
+|   |   |   |   |   |   |   |--- is_lunch >  0.50
+|   |   |   |   |   |   |   |   |--- class: Medium
+|   |   |   |   |   |   |--- exam_week >  0.50
+|   |   |   |   |   |   |   |--- is_lunch <= 0.50
+|   |   |   |   |   |   |   |   |--- class: Medium
+|   |   |   |   |   |   |   |--- is_lunch >  0.50
+|   |   |   |   |   |   |   |   |--- class: Medium
+|   |   |   |   |   |--- short_break >  0.50
+|   |   |   |   |   |   |--- is_lunch <= 0.50
+|   |   |   |   |   |   |   |--- exam_week <= 0.50
+|   |   |   |   |   |   |   |   |--- class: Medium
+|   |   |   |   |   |   |   |--- exam_week >  0.50
+|   |   |   |   |   |   |   |   |--- class: Medium
+|   |   |   |   |   |   |--- is_lunch >  0.50
+|   |   |   |   |   |   |   |--- class: High
+|   |   |   |--- is_weekend >  0.50
+|   |   |   |   |--- exam_week <= 0.50
+|   |   |   |   |   |--- short_break <= 0.50
+|   |   |   |   |   |   |--- is_lunch <= 0.50
+|   |   |   |   |   |   |   |--- class: Medium
+|   |   |   |   |   |   |--- is_lunch >  0.50
+|   |   |   |   |   |   |   |--- class: Medium
+|   |   |   |   |   |--- short_break >  0.50
+|   |   |   |   |   |   |--- is_lunch <= 0.50
+|   |   |   |   |   |   |   |--- class: Medium
+|   |   |   |   |   |   |--- is_lunch >  0.50
+|   |   |   |   |   |   |   |--- class: Medium
+|   |   |   |   |--- exam_week >  0.50
+|   |   |   |   |   |--- short_break <= 0.50
+|   |   |   |   |   |   |--- is_lunch <= 0.50
+|   |   |   |   |   |   |   |--- class: High
+|   |   |   |   |   |   |--- is_lunch >  0.50
+|   |   |   |   |   |   |   |--- class: High
+|   |   |   |   |   |--- short_break >  0.50
+|   |   |   |   |   |   |--- is_lunch <= 0.50
+|   |   |   |   |   |   |   |--- class: High
+|   |   |   |   |   |   |--- is_lunch >  0.50
+|   |   |   |   |   |   |   |--- class: High
+|   |   |--- haze >  0.50
+|   |   |   |--- is_weekend <= 0.50
+|   |   |   |   |--- is_friday <= 0.50
+|   |   |   |   |   |--- exam_week <= 0.50
+|   |   |   |   |   |   |--- is_lunch <= 0.50
+|   |   |   |   |   |   |   |--- short_break <= 0.50
+|   |   |   |   |   |   |   |   |--- class: Medium
+|   |   |   |   |   |   |   |--- short_break >  0.50
+|   |   |   |   |   |   |   |   |--- class: Medium
+|   |   |   |   |   |   |--- is_lunch >  0.50
+|   |   |   |   |   |   |   |--- short_break <= 0.50
+|   |   |   |   |   |   |   |   |--- class: Medium
+|   |   |   |   |   |   |   |--- short_break >  0.50
+|   |   |   |   |   |   |   |   |--- class: High
+|   |   |   |   |   |--- exam_week >  0.50
+|   |   |   |   |   |   |--- is_lunch <= 0.50
+|   |   |   |   |   |   |   |--- short_break <= 0.50
+|   |   |   |   |   |   |   |   |--- class: High
+|   |   |   |   |   |   |   |--- short_break >  0.50
+|   |   |   |   |   |   |   |   |--- class: High
+|   |   |   |   |   |   |--- is_lunch >  0.50
+|   |   |   |   |   |   |   |--- short_break <= 0.50
+|   |   |   |   |   |   |   |   |--- class: High
+|   |   |   |   |   |   |   |--- short_break >  0.50
+|   |   |   |   |   |   |   |   |--- class: High
+|   |   |   |   |--- is_friday >  0.50
+|   |   |   |   |   |--- exam_week <= 0.50
+|   |   |   |   |   |   |--- is_lunch <= 0.50
+|   |   |   |   |   |   |   |--- short_break <= 0.50
+|   |   |   |   |   |   |   |   |--- class: High
+|   |   |   |   |   |   |   |--- short_break >  0.50
+|   |   |   |   |   |   |   |   |--- class: High
+|   |   |   |   |   |   |--- is_lunch >  0.50
+|   |   |   |   |   |   |   |--- short_break <= 0.50
+|   |   |   |   |   |   |   |   |--- class: High
+|   |   |   |   |   |   |   |--- short_break >  0.50
+|   |   |   |   |   |   |   |   |--- class: High
+|   |   |   |   |   |--- exam_week >  0.50
+|   |   |   |   |   |   |--- is_lunch <= 0.50
+|   |   |   |   |   |   |   |--- short_break <= 0.50
+|   |   |   |   |   |   |   |   |--- class: High
+|   |   |   |   |   |   |   |--- short_break >  0.50
+|   |   |   |   |   |   |   |   |--- class: High
+|   |   |   |   |   |   |--- is_lunch >  0.50
+|   |   |   |   |   |   |   |--- class: High
+|   |   |   |--- is_weekend >  0.50
+|   |   |   |   |--- class: High
+|   |--- heavy_rain >  0.50
+|   |   |--- is_lunch <= 0.50
+|   |   |   |--- short_break <= 0.50
+|   |   |   |   |--- class: High
+|   |   |   |--- short_break >  0.50
+|   |   |   |   |--- exam_week <= 0.50
+|   |   |   |   |   |--- is_weekend <= 0.50
+|   |   |   |   |   |   |--- is_friday <= 0.50
+|   |   |   |   |   |   |   |--- class: High
+|   |   |   |   |   |   |--- is_friday >  0.50
+|   |   |   |   |   |   |   |--- class: High
+|   |   |   |   |   |--- is_weekend >  0.50
+|   |   |   |   |   |   |--- class: High
+|   |   |   |   |--- exam_week >  0.50
+|   |   |   |   |   |--- class: High
+|   |   |--- is_lunch >  0.50
+|   |   |   |--- class: High
+|--- holiday >  0.50
+|   |--- class: High

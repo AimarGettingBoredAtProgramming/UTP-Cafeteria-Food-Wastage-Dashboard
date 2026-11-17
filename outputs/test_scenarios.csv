@@ -1,0 +1,9 @@
+scenario,day,calendar,weather,short_break,meal,expected_demand_pct,predicted_risk,confidence_pct,recommended_batch_if_usual_100
+Normal Monday,Mon,Normal week,Clear,False,Lunch,100,Low,100,100
+Normal Friday,Fri,Normal week,Clear,False,Lunch,74,Medium,100,74
+Rainy Tuesday,Tue,Normal week,Heavy rain,False,Lunch,45,High,100,45
+Exam-week Wednesday,Wed,Exam week,Clear,False,Lunch,82,Low,58,82
+Public holiday (Thursday),Thu,Holiday / break,Clear,False,Lunch,23,High,100,23
+Rainy Friday,Fri,Normal week,Heavy rain,False,Lunch,33,High,100,33
+Hazy exam-week Monday,Mon,Exam week,Haze,False,Dinner,54,High,53,54
+Tuesday with short class breaks,Tue,Normal week,Clear,True,Lunch,59,Medium,82,59
