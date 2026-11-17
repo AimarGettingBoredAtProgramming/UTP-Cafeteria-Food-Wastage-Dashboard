@@ -6,6 +6,7 @@
   <title>UTP Cafeteria Batch Advisor</title>
   <meta name="description" content="Batch-cooking advisor that helps UTP cafeteria vendors cut food waste and kitchen energy use, using live weather, the academic calendar and a decision-tree model.">
   <meta name="theme-color" content="#070b14">
+  <script>try { var t = localStorage.getItem("advisor-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}</script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -28,13 +29,14 @@
       <div class="status-pills">
         <span class="pill" id="pill-weather"><span class="dot"></span>Weather: connecting…</span>
         <span class="pill" id="pill-cal"><span class="dot"></span>Calendar</span>
-        <button type="button" class="engine-btn" id="engine-btn" aria-expanded="false" title="Show what the engine is doing">⚙ Engine</button>
+        <button type="button" class="theme-btn" id="theme-btn" title="Switch theme" aria-label="Switch to light mode"><span class="ti-sun">☀️</span><span class="ti-moon">🌙</span></button>
       </div>
     </div>
     <nav class="tabs" role="tablist">
       <button class="tab active" data-tab="predict" role="tab">Daily advisor</button>
       <button class="tab" data-tab="insights" role="tab">Survey insights</button>
       <button class="tab" data-tab="model" role="tab">Model &amp; method</button>
+      <button class="tab" data-tab="engine" role="tab"><span class="eng-tab-dot"></span>Engine console</button>
     </nav>
   </header>
 
@@ -395,31 +397,44 @@
         </ul>
       </div>
     </section>
+    <!-- ===================== ENGINE CONSOLE ===================== -->
+    <section id="tab-engine" class="tab-panel">
+      <div class="card eng-scenario">
+        <div class="eng-now">
+          <span class="live-lbl">Now tracing</span>
+          <strong id="eng-now-title">–</strong>
+          <span class="muted small" id="eng-now-sub">–</span>
+        </div>
+        <div class="eng-mini">
+          <label class="muted small" for="eng-time">Time <b id="eng-time-lbl">–</b></label>
+          <input type="range" id="eng-time" min="420" max="1380" step="30" aria-label="Time of day (engine tab)">
+          <span class="muted small">Drag to watch the engines react. Change the other inputs on the <a href="#" data-goto="predict">Daily advisor</a> tab, and every run is logged here.</span>
+        </div>
+      </div>
+      <section class="engine" id="engine" aria-label="Engine console">
+        <div class="eng-head">
+          <div class="eng-title">
+            <span class="eng-dot" id="eng-dot"></span>
+            <strong>Engine console</strong>
+            <span class="eng-sub">Live trace of every prediction. The model was trained offline in Python (scikit-learn) and runs here in your browser.</span>
+          </div>
+          <div class="eng-actions">
+            <button type="button" class="eng-btn accent" id="eng-train">▶ Replay training</button>
+            <button type="button" class="eng-btn" id="eng-pause">❚❚ Pause</button>
+            <button type="button" class="eng-btn" id="eng-clear">Clear</button>
+          </div>
+        </div>
+        <div class="eng-body">
+          <div class="eng-side">
+            <div class="eng-pipe" id="eng-pipe"></div>
+            <div class="eng-trainpanel" id="eng-trainpanel" hidden></div>
+          </div>
+          <div class="eng-log" id="eng-log" role="log" aria-live="off"></div>
+        </div>
+      </section>
+    </section>
   </main>
 
-  <section class="engine" id="engine" hidden aria-label="Engine console">
-    <div class="eng-head">
-      <div class="eng-title">
-        <span class="eng-dot" id="eng-dot"></span>
-        <strong>Engine console</strong>
-        <span class="eng-sub">Live trace of every prediction. The model was trained offline in Python (scikit-learn) and runs here in your browser.</span>
-      </div>
-      <div class="eng-actions">
-        <button type="button" class="eng-btn accent" id="eng-train">▶ Replay training</button>
-        <button type="button" class="eng-btn" id="eng-pause">❚❚ Pause</button>
-        <button type="button" class="eng-btn" id="eng-clear">Clear</button>
-        <button type="button" class="eng-btn" id="eng-size" title="Expand / shrink">⤢</button>
-        <button type="button" class="eng-btn" id="eng-close" title="Close">✕</button>
-      </div>
-    </div>
-    <div class="eng-body">
-      <div class="eng-side">
-        <div class="eng-pipe" id="eng-pipe"></div>
-        <div class="eng-trainpanel" id="eng-trainpanel" hidden></div>
-      </div>
-      <div class="eng-log" id="eng-log" role="log" aria-live="off"></div>
-    </div>
-  </section>
 
   <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 

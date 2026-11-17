@@ -19,10 +19,23 @@
   const $ = (id) => document.getElementById(id);
   const fmt = (n, d = 0) => Number(n).toLocaleString("en-MY", { maximumFractionDigits: d, minimumFractionDigits: d });
 
-  const COLORS = { Low: "#34d399", Medium: "#fbbf24", High: "#f87171", brand: "#38bdf8", teal: "#2dd4bf", grey: "#475569" };
-  const SOFT = { Low: "rgba(52,211,153,.14)", Medium: "rgba(251,191,36,.14)", High: "rgba(248,113,113,.14)" };
+  // Theme palettes for chart colours (CSS handles the rest via variables)
+  const THEMES = {
+    dark: { colors: { Low: "#34d399", Medium: "#fbbf24", High: "#f87171", brand: "#38bdf8", teal: "#2dd4bf", grey: "#475569" },
+      grid: "rgba(148,163,184,.10)", text: "#8b9ab0", tipBg: "#0b1220", tipBorder: "rgba(148,163,184,.25)", tipText: "#e6edf7",
+      bar: "#2a3547", line: "rgba(226,232,240,.55)", marker: "rgba(255,255,255,.75)", meta: "#070b14" },
+    light: { colors: { Low: "#059669", Medium: "#d97706", High: "#dc2626", brand: "#0284c7", teal: "#0d9488", grey: "#94a3b8" },
+      grid: "rgba(15,23,42,.08)", text: "#56657a", tipBg: "#ffffff", tipBorder: "rgba(15,23,42,.15)", tipText: "#0f172a",
+      bar: "#cbd5e1", line: "rgba(15,23,42,.45)", marker: "rgba(15,23,42,.65)", meta: "#eef2f8" },
+  };
+  let THEME = document.documentElement.dataset.theme === "light" ? "light" : "dark";
+  let TH = THEMES[THEME];
+  const COLORS = { ...TH.colors };
+  const SOFT = {};
+  const setSoft = () => { for (const k of ["Low", "Medium", "High"]) SOFT[k] = COLORS[k] + "24"; };
+  setSoft();
   const RANK = { Low: 0, Medium: 1, High: 2 };
-  const GRID = "rgba(148,163,184,.10)";
+  let GRID = TH.grid;
   const DAY_FULL = { Mon: "Monday", Tue: "Tuesday", Wed: "Wednesday", Thu: "Thursday", Fri: "Friday", Sat: "Saturday", Sun: "Sunday" };
   const ICONS = { "Normal week": "📘", "Exam week": "📝", "Holiday / break": "🏖️", Clear: "☀️", "Heavy rain": "🌧️", Haze: "🌫️" };
   const SHORT = { "Normal week": "Normal", "Exam week": "Exam", "Holiday / break": "Holiday" };
@@ -475,6 +488,7 @@
     renderFuzzy(fz);
     renderWeek();
     renderSlots(sc, used, tier);
+    renderEngineHeader(sc, tier, rec);
     engineRun({ sc, dem, fz, pred, used, rec, lo, hi, saved, kwh, tier });
     renderTips(sc);
   }
@@ -546,7 +560,7 @@
       const { top, bottom } = chart.chartArea;
       const c = chart.ctx;
       c.save();
-      c.strokeStyle = "rgba(255,255,255,.7)"; c.setLineDash([4, 4]); c.lineWidth = 1;
+      c.strokeStyle = TH.marker; c.setLineDash([4, 4]); c.lineWidth = 1;
       c.beginPath(); c.moveTo(x, top); c.lineTo(x, bottom); c.stroke();
       c.restore();
     },
@@ -564,7 +578,7 @@
     const data = {
       labels,
       datasets: [
-        { type: "line", label: "Expected demand %", data: dem, yAxisID: "y", borderColor: "rgba(226,232,240,.55)", borderWidth: 2,
+        { type: "line", label: "Expected demand %", data: dem, yAxisID: "y", borderColor: TH.line, borderWidth: 2,
           pointBackgroundColor: ptColors, pointBorderColor: ptColors, pointRadius: hours.map((_, i) => (i === sel ? 6 : 3)), tension: .3, order: 0 },
         { type: "bar", label: "Rain (mm)", data: rain, yAxisID: "y1", borderRadius: 4, maxBarThickness: 18, order: 1,
           backgroundColor: hours.map((_, i) => (i === sel ? "rgba(56,189,248,.95)" : "rgba(56,189,248,.45)")) },
@@ -694,8 +708,9 @@
     afterDatasetsDraw(chart) {
       if (chart.$x == null) return;
       const x = chart.scales.x.getPixelForValue(chart.$x), { top, bottom } = chart.chartArea, c = chart.ctx;
-      c.save(); c.strokeStyle = chart.$xc || "#fff"; c.fillStyle = chart.$xc || "#fff"; c.lineWidth = 2.5;
-      c.shadowColor = chart.$xc || "#fff"; c.shadowBlur = 6;
+      const col = chart.$xc || TH.marker;
+      c.save(); c.strokeStyle = col; c.fillStyle = col; c.lineWidth = 2.5;
+      c.shadowColor = col; c.shadowBlur = 6;
       c.beginPath(); c.moveTo(x, top); c.lineTo(x, bottom); c.stroke();
       c.beginPath(); c.arc(x, top, 4, 0, Math.PI * 2); c.fill(); c.restore();
     },
@@ -822,7 +837,7 @@
       $("slot-note").textContent = `${sc.period.name} timing wasn't surveyed, so only the total is shown`;
     }
     const data = { labels, datasets: [
-      { label: "Normal weekday", data: normal, backgroundColor: "#2a3547", borderRadius: 8 },
+      { label: "Normal weekday", data: normal, backgroundColor: TH.bar, borderRadius: 8 },
       { label: "This service", data: scen, borderRadius: 8,
         backgroundColor: scen.map((_, i) => (active === -1 || i === active ? COLORS[tier] : COLORS[tier] + "66")) },
     ] };
@@ -1033,15 +1048,6 @@
   }
 
   function setupEngine() {
-    const toggle = (open) => {
-      ENG.open = open;
-      $("engine").hidden = !open;
-      $("engine-btn").setAttribute("aria-expanded", open);
-      document.body.classList.toggle("engine-open", open);
-      if (open) { ENG.lastSig = ""; render(); }
-    };
-    $("engine-btn").onclick = () => toggle(!ENG.open);
-    $("eng-close").onclick = () => toggle(false);
     $("eng-clear").onclick = () => { $("eng-log").innerHTML = ""; elog("SYS", "log cleared"); };
     $("eng-pause").onclick = () => {
       ENG.paused = !ENG.paused;
@@ -1050,9 +1056,18 @@
       elog("SYS", ENG.paused ? "paused: new runs are not logged" : "resumed");
       if (!ENG.paused) { ENG.lastSig = ""; render(); }
     };
-    $("eng-size").onclick = () => { $("engine").classList.toggle("big"); document.body.classList.toggle("engine-big"); };
     $("eng-train").onclick = replayTraining;
+    $("eng-time").oninput = (e) => setTime(+e.target.value);
+    document.querySelectorAll("[data-goto]").forEach((el) => el.onclick = (e) => { e.preventDefault(); showTab(el.dataset.goto); window.scrollTo({ top: 0 }); });
     elog("SYS", `engine ready · decision tree: ${D.metrics.tree_leaves} leaves, test accuracy ${(D.metrics.test_accuracy * 100).toFixed(1)}% · fuzzy: Mamdani, ${FZ.rules.length} rules · model built ${D.generated}`);
+  }
+
+  // header of the engine tab: what is being traced right now
+  function renderEngineHeader(sc, tier, rec) {
+    $("eng-time").value = state.time;
+    $("eng-time-lbl").textContent = `${fmtTime(state.time)} · ${sc.period.name}`;
+    $("eng-now-title").innerHTML = `${DAY_FULL[sc.day]}${state.live ? " " + shortDate(sc.date) : ""} · ${fmtTime(state.time)} · <span style="color:${COLORS[tier]}">${tier} risk</span> · cook ${rec}`;
+    $("eng-now-sub").textContent = `${sc.calendar} · ${sc.weather} · ${$("cafe").value} · usual batch ${state.batch} · ${state.live ? "live data" : "manual mode"}`;
   }
 
   /* ---------------------------------------------------------- chart utils */
@@ -1100,7 +1115,7 @@
 
     const lk = { exam_week: "Exam week", friday: "Friday", weekend: "Weekend", haze: "Haze", heavy_rain: "Heavy rain" };
     const levels = ["Very unlikely", "Somewhat unlikely", "Neither likely nor unlikely", "Somewhat likely", "Very likely"];
-    const lkColors = ["#f87171", "#fb923c", "#475569", "#38bdf8", "#2dd4bf"];
+    const lkColors = [COLORS.High, "#fb923c", COLORS.grey, COLORS.brand, COLORS.teal];
     new Chart($("ch-likert"), {
       type: "bar",
       data: { labels: Object.values(lk),
@@ -1184,27 +1199,58 @@
     $("m-med").textContent = Math.round(CFG.risk_thresholds.Medium * 100);
   }
 
+  /* ---------------------------------------------------------------- theme */
+  function applyChartDefaults() {
+    Chart.defaults.color = TH.text;
+    Chart.defaults.borderColor = TH.grid;
+    Object.assign(Chart.defaults.plugins.tooltip, { backgroundColor: TH.tipBg, borderColor: TH.tipBorder, titleColor: TH.tipText, bodyColor: TH.tipText });
+  }
+
+  function setTheme(name) {
+    THEME = name; TH = THEMES[name]; GRID = TH.grid;
+    Object.assign(COLORS, TH.colors); setSoft();
+    document.documentElement.dataset.theme = name;
+    document.querySelector('meta[name="theme-color"]').setAttribute("content", TH.meta);
+    $("theme-btn").setAttribute("aria-label", name === "dark" ? "Switch to light mode" : "Switch to dark mode");
+    try { localStorage.setItem("advisor-theme", name); } catch (e) { /* storage unavailable: theme still applies */ }
+    if (!window.Chart || !Chart.instances) { render(); return; }
+    applyChartDefaults();
+    // charts are rebuilt so every axis, grid line and tier colour picks up the new palette
+    rebuildCharts();
+    render();
+  }
+
+  function rebuildCharts() {
+    Object.values(Chart.instances).forEach((ch) => ch.destroy());
+    dayChart = null; slotChart = null;
+    for (const k of Object.keys(fzCharts)) delete fzCharts[k];
+    const insightsWas = insightsBuilt, modelWas = modelBuilt;
+    insightsBuilt = false; modelBuilt = false;
+    if (insightsWas) buildInsights();
+    if (modelWas) buildModel();
+  }
+
   /* ----------------------------------------------------------------- tabs */
   function showTab(name) {
     document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t.dataset.tab === name));
     document.querySelectorAll(".tab-panel").forEach((p) => p.classList.toggle("active", p.id === "tab-" + name));
     if (name === "insights") buildInsights();
     if (name === "model") buildModel();
+    if (name === "engine") { ENG.lastSig = ""; render(); }
   }
 
   /* ----------------------------------------------------------------- init */
   if (window.Chart) {
     Chart.defaults.font.family = "Inter, system-ui, sans-serif";
-    Chart.defaults.color = "#8b9ab0";
-    Chart.defaults.borderColor = GRID;
-    Chart.defaults.plugins.tooltip.backgroundColor = "#0b1220";
-    Chart.defaults.plugins.tooltip.borderColor = "rgba(148,163,184,.25)";
+    applyChartDefaults();
     Chart.defaults.plugins.tooltip.borderWidth = 1;
     Chart.defaults.plugins.tooltip.padding = 10;
   } else {
     window.Chart = function () { return { update() {}, data: { datasets: [{}] } }; }; // offline: skip charts
   }
   document.querySelectorAll(".tab").forEach((t) => (t.onclick = () => showTab(t.dataset.tab)));
+  $("theme-btn").onclick = () => setTheme(THEME === "dark" ? "light" : "dark");
+  $("theme-btn").setAttribute("aria-label", THEME === "dark" ? "Switch to light mode" : "Switch to dark mode");
   buildControls();
   setupEngine();
   fillStats();

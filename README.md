@@ -37,7 +37,7 @@ Any live value can be overridden by hand, or live mode can be switched off to te
 | Explanation | Survey factors applied + the decision-tree path |
 | Next 7 days | Live forecast + calendar risk tier for each upcoming day, at the selected time |
 
-The dashboard has three tabs: **Daily advisor**, **Survey insights** (all survey charts) and **AI model & method** (accuracy, confusion matrix, feature importance, test scenarios, assumptions, limitations).
+The dashboard has four tabs: **Daily advisor**, **Survey insights** (all survey charts), **Model & method** (accuracy, confusion matrix, feature importance, fuzzy rule base, test scenarios, assumptions, limitations) and **Engine console** (live trace + training replay). A ☀️/🌙 switch in the header toggles **light and dark mode**, and the choice is remembered in your browser.
 
 ## How it works
 
@@ -75,7 +75,7 @@ Live inputs: Open-Meteo weather + air quality, UTP academic calendar, Perak holi
 
 ### Engine console (see what the AI is doing)
 
-Click **⚙ Engine** in the header to open a console docked at the bottom of the page. It's a "backend view" that stays open while you use the dashboard:
+Open the **Engine console** tab for a "backend view" of the AI. It shows what is being traced right now and has its own time slider, so you can drag through the day and watch both engines react. Every run from the other tabs is logged here too:
 
 - **Live trace:** every time you change the date, time, weather or batch, the console logs each step of the prediction:
   1. **API:** the forecast values for that hour.
