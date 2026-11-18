@@ -932,12 +932,12 @@
     for (let x = -40; x < 160; x += 20) wave += " q5 -4 10 0 t10 0";
     return `<div class="pot"><svg viewBox="0 0 120 132" aria-hidden="true">
       <defs><clipPath id="pot-clip-${uid}"><path d="${body}"/></clipPath></defs>
-      <g class="p-steam"><path d="M45 26 q-5 -7 0 -14 t0 -12"/><path d="M60 26 q-5 -7 0 -14 t0 -12"/><path d="M75 26 q-5 -7 0 -14 t0 -12"/></g>
+      <g class="p-steam"><path d="M45 20 q-5 -6 0 -11 t0 -9"/><path d="M60 20 q-5 -6 0 -11 t0 -9"/><path d="M75 20 q-5 -6 0 -11 t0 -9"/></g>
       <g clip-path="url(#pot-clip-${uid})"><g class="p-liquid" style="transform:translateY(83px)">
         <path class="p-wave" d="${wave} L160 46 L-40 46 Z"/><rect x="0" y="44" width="120" height="100"/></g></g>
       <path class="p-body" d="${body}"/>
       <path class="p-handle" d="M18 46 H8 M102 46 H112"/><path class="p-handle" d="M12 36 H108"/>
-      <line class="p-usual" x1="22" y1="40" x2="98" y2="40"/><text class="p-usual-t" x="60" y="33" text-anchor="middle">usual batch</text>
+      <line class="p-usual" x1="22" y1="40" x2="98" y2="40"/><text class="p-usual-t" x="60" y="29" text-anchor="middle">usual batch</text>
     </svg><div class="pot-lbl">cook <b class="num n-pcook">0</b> of <b class="num n-pbatch">0</b></div></div>`;
   }
 
@@ -955,7 +955,7 @@
       if (k < 1) el._raf = requestAnimationFrame(step);
     };
     el._raf = requestAnimationFrame(step);
-    el.classList.remove("tick"); void el.offsetWidth; el.classList.add("tick");
+    el.classList.remove("rolled"); void el.offsetWidth; el.classList.add("rolled");
   }
 
   const SHORT_FEAT = { is_friday: "Friday", is_weekend: "Weekend", exam_week: "Exam", holiday: "Holiday", heavy_rain: "Rain", haze: "Haze", short_break: "Short breaks", is_lunch: "Lunch" };
@@ -987,10 +987,10 @@
         <div class="pipe"><i></i><i></i><i></i></div>
         <div class="m-col out">
           <div class="formula">
-            <div class="f-line main"><span class="f-lbl">usual batch × expected demand (<span class="f-basis">fuzzy</span>)</span><br>
-              <span class="num n-batch">0</span><span class="op">×</span><span class="num n-dem">0</span>%<span class="op">=</span><span class="num res n-rec">0</span> <span class="f-lbl">portions to cook</span></div>
-            <div class="f-line"><span class="num n-saved">0</span> not cooked<span class="op">×</span><span class="num n-kgp">0</span> kg<span class="op">=</span><span class="num n-kg">0</span> kg food saved</div>
-            <div class="f-line"><span class="num n-saved2">0</span><span class="op">×</span><span class="num n-kwhp">0</span> kWh<span class="op">+</span><span class="num n-warm">0</span> kWh warmers<span class="op">=</span><span class="num n-kwh">0</span> kWh saved</div>
+            <div class="f-line main"><span class="f-lbl">usual batch × expected demand (<span class="f-basis">fuzzy</span>)</span>
+              <span class="num n-batch">0</span><span class="op">×</span><span class="f-unit"><span class="num n-dem">0</span>%</span><span class="op">=</span><span class="num res n-rec">0</span><span class="f-unit">portions to cook</span></div>
+            <div class="f-line"><span class="f-lbl">food saved</span><span class="f-unit"><span class="num n-saved">0</span> not cooked</span><span class="op">×</span><span class="f-unit"><span class="num n-kgp">0</span> kg</span><span class="op">=</span><span class="f-unit"><span class="num n-kg">0</span> kg</span></div>
+            <div class="f-line"><span class="f-lbl">energy saved (cooking + warmers)</span><span class="f-unit"><span class="num n-saved2">0</span> ×</span><span class="f-unit"><span class="num n-kwhp">0</span> kWh</span><span class="op">+</span><span class="f-unit"><span class="num n-warm">0</span> kWh</span><span class="op">=</span><span class="f-unit"><span class="num n-kwh">0</span> kWh</span></div>
           </div>
           ${compact ? "" : potHTML(uid)}
         </div>
