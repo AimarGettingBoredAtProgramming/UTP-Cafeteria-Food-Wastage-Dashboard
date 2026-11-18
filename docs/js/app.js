@@ -404,6 +404,7 @@
   }
 
   function setTime(min) {
+    if (PLAY.on) stopPlay(); // the user took over the time slider
     state.time = Math.min(CLOSE, Math.max(OPEN, min));
     state.follow = false;
     render();
@@ -489,6 +490,7 @@
     renderWeek();
     renderSlots(sc, used, tier);
     renderEngineHeader(sc, tier, rec);
+    CALCS.forEach((c) => c.update({ fz, pred, used, rec, saved, kwh, warmerKwh, A, tier }));
     engineRun({ sc, dem, fz, pred, used, rec, lo, hi, saved, kwh, tier });
     renderTips(sc);
   }
@@ -863,6 +865,252 @@
     const shift = pct(S.forecast_reaction, "Eat somewhere else") + pct(S.forecast_reaction, "Eat earlier or later");
     tips.push(["📣", "Post your quiet hours", `${Math.round(shift)}% of students would change when or where they eat if told it's busy. Posting quiet times spreads out the rush.`]);
     $("tips").innerHTML = tips.slice(0, 3).map(([i, t, d]) => `<div class="card tip"><span class="ti">${i}</span><div><strong>${t}</strong>${d}</div></div>`).join("");
+  }
+
+  /* ------------------------------------------- live calculation (animated) */
+  // A "machine" view: input dials → data pipes → decision tree + fuzzy engine → formula + cooking pot.
+  // Everything eases to its new value whenever an input changes; auto-play sweeps the day.
+  const RM = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const PLAY = { on: false, speed: 1, timer: null };
+  let CALCS = [];
+  let calcUid = 0;
+
+  const KNOB_GEO = { cx: 60, cy: 54, r: 40 };
+  const kAngle = (k, v) => -135 + 270 * (Math.min(Math.max(v, k.min), k.max) - k.min) / (k.max - k.min);
+  const kPoint = (deg, r = KNOB_GEO.r) => {
+    const t = (deg * Math.PI) / 180;
+    return [KNOB_GEO.cx + r * Math.sin(t), KNOB_GEO.cy - r * Math.cos(t)];
+  };
+  const kArc = (d0, d1) => {
+    const [x0, y0] = kPoint(d0), [x1, y1] = kPoint(d1);
+    return `M${x0.toFixed(2)} ${y0.toFixed(2)} A${KNOB_GEO.r} ${KNOB_GEO.r} 0 ${d1 - d0 > 180 ? 1 : 0} 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`;
+  };
+  // zones = fuzzy sets, split where neighbouring membership functions cross
+  function zonesFromSets(spec, colors) {
+    const names = Object.keys(spec.sets), [lo, hi] = spec.range, z = [];
+    let from = lo;
+    names.forEach((n, i) => {
+      const p = spec.sets[n], q = names[i + 1] && spec.sets[names[i + 1]];
+      const to = q ? (p[2] + p[3] + q[0] + q[1]) / 4 : hi;
+      z.push({ name: n, from, to, color: colors[n] });
+      from = to;
+    });
+    return z;
+  }
+
+  function knobDefs() {
+    return [
+      { key: "rain", icon: "🌧️", label: "Rain", min: 0, max: 6, unit: "mm / hour", fmt: (v) => v.toFixed(1), zones: zonesFromSets(FZ.inputs.rain, FZ_COLORS.rain) },
+      { key: "air", icon: "🌫️", label: "Air (PM2.5)", min: 0, max: 100, unit: "µg/m³", fmt: (v) => Math.round(v), zones: zonesFromSets(FZ.inputs.air, FZ_COLORS.air) },
+      { key: "day", icon: "📅", label: "Day demand", min: 0, max: 100, unit: "% of normal", fmt: (v) => Math.round(v), zones: zonesFromSets(FZ.inputs.day_demand, FZ_COLORS.day_demand) },
+      { key: "time", icon: "🕒", label: "Time of day", min: OPEN, max: CLOSE, unit: "", fmt: (v) => fmtTime(v).split(" ")[0], unitFn: (v) => fmtTime(v).split(" ")[1],
+        zones: PERIODS.map((p) => ({ name: p.name, from: p.start, to: Math.min(p.end, CLOSE), color: p.color })) },
+    ];
+  }
+
+  function knobHTML(k) {
+    const ticks = Array.from({ length: 11 }, (_, i) => {
+      const d = -135 + 27 * i, [x0, y0] = kPoint(d, 47), [x1, y1] = kPoint(d, 50);
+      return `<line x1="${x0.toFixed(1)}" y1="${y0.toFixed(1)}" x2="${x1.toFixed(1)}" y2="${y1.toFixed(1)}" stroke="currentColor" opacity=".35"/>`;
+    }).join("");
+    const zones = k.zones.map((z) => `<path class="k-zone" d="${kArc(kAngle(k, z.from), kAngle(k, z.to) - 0.01)}" stroke="${z.color}"/>`).join("");
+    return `<div class="knob" data-k="${k.key}">
+      <div class="k-name">${k.icon} ${k.label}</div>
+      <svg viewBox="0 0 120 100" aria-hidden="true">
+        <path class="k-track" d="${kArc(-135, 135)}"/>${zones}<g style="color:var(--muted)">${ticks}</g>
+        <g class="needle" style="transform-box:view-box;transform-origin:${KNOB_GEO.cx}px ${KNOB_GEO.cy}px;transform:rotate(-135deg)">
+          <line x1="${KNOB_GEO.cx}" y1="${KNOB_GEO.cy}" x2="${KNOB_GEO.cx}" y2="${KNOB_GEO.cy - 31}"/><circle cx="${KNOB_GEO.cx}" cy="${KNOB_GEO.cy}" r="5"/>
+        </g>
+        <text class="k-val" x="60" y="86">–</text><text class="k-unit" x="60" y="97">${k.unit}</text>
+      </svg>
+      <span class="k-zone-lbl">–</span></div>`;
+  }
+
+  function potHTML(uid) {
+    const body = "M18 36 L102 36 L96 116 Q95 123 88 123 L32 123 Q25 123 24 116 Z";
+    let wave = "M-40 40";
+    for (let x = -40; x < 160; x += 20) wave += " q5 -4 10 0 t10 0";
+    return `<div class="pot"><svg viewBox="0 0 120 132" aria-hidden="true">
+      <defs><clipPath id="pot-clip-${uid}"><path d="${body}"/></clipPath></defs>
+      <g class="p-steam"><path d="M45 26 q-5 -7 0 -14 t0 -12"/><path d="M60 26 q-5 -7 0 -14 t0 -12"/><path d="M75 26 q-5 -7 0 -14 t0 -12"/></g>
+      <g clip-path="url(#pot-clip-${uid})"><g class="p-liquid" style="transform:translateY(83px)">
+        <path class="p-wave" d="${wave} L160 46 L-40 46 Z"/><rect x="0" y="44" width="120" height="100"/></g></g>
+      <path class="p-body" d="${body}"/>
+      <path class="p-handle" d="M18 46 H8 M102 46 H112"/><path class="p-handle" d="M12 36 H108"/>
+      <line class="p-usual" x1="22" y1="40" x2="98" y2="40"/><text class="p-usual-t" x="60" y="33" text-anchor="middle">usual batch</text>
+    </svg><div class="pot-lbl">cook <b class="num n-pcook">0</b> of <b class="num n-pbatch">0</b></div></div>`;
+  }
+
+  const fmtNum = (v, dec) => Number(v).toLocaleString("en-MY", { minimumFractionDigits: dec, maximumFractionDigits: dec });
+  function tween(el, to, dec = 0) {
+    if (!el) return;
+    const from = el._v == null ? to : el._v;
+    el._v = to;
+    cancelAnimationFrame(el._raf);
+    if (RM || from === to) { el.textContent = fmtNum(to, dec); return; }
+    const t0 = performance.now(), dur = 700;
+    const step = (t) => {
+      const k = Math.min((t - t0) / dur, 1), e = 1 - Math.pow(1 - k, 3);
+      el.textContent = fmtNum(from + (to - from) * e, dec);
+      if (k < 1) el._raf = requestAnimationFrame(step);
+    };
+    el._raf = requestAnimationFrame(step);
+    el.classList.remove("tick"); void el.offsetWidth; el.classList.add("tick");
+  }
+
+  const SHORT_FEAT = { is_friday: "Friday", is_weekend: "Weekend", exam_week: "Exam", holiday: "Holiday", heavy_rain: "Rain", haze: "Haze", short_break: "Short breaks", is_lunch: "Lunch" };
+
+  function createCalc(host, compact) {
+    if (!host || !FZ) return null;
+    const uid = ++calcUid, knobs = knobDefs();
+    host.innerHTML = `
+      <div class="calc-head">
+        <div><h3>⚙️ Live calculation</h3><p class="muted small">${compact
+          ? "The same machine as the Daily advisor: inputs → AI engines → batch size."
+          : "Watch the live inputs flow through both AI engines into the batch size. Drag the time slider or press auto-play."}</p></div>
+        <div class="calc-ctrl">
+          <button type="button" class="ghost-btn play-btn">▶ Auto-play the day</button>
+          <div class="segmented speed-seg">${[0.5, 1, 2].map((v) => `<button type="button" class="seg-btn" data-v="${v}">${v}×</button>`).join("")}</div>
+        </div>
+      </div>
+      <div class="machine">
+        <div class="m-col knobs">${knobs.map(knobHTML).join("")}</div>
+        <div class="pipe"><i></i><i></i><i></i></div>
+        <div class="m-col engines">
+          <div class="eng-box tree-box"><div class="eb-title"><span>🌳 Decision tree</span><span class="tier-badge t-tree">–</span></div><div class="tree-path"></div></div>
+          <div class="eng-box fz-box"><div class="eb-title"><span>〰️ Fuzzy logic</span><span class="tier-badge t-fz">–</span></div>
+            <svg class="fz-mini" viewBox="0 0 200 62" preserveAspectRatio="none" aria-hidden="true">
+              <line class="fz-base" x1="0" y1="60" x2="200" y2="60"/><path class="fz-area" d="M0 60 L200 60 Z"/>
+              <g class="fz-cent"><line x1="0" y1="2" x2="0" y2="60"/></g></svg>
+            <div class="fz-score">centroid <b class="num n-score">0</b>/100 → demand <b class="num n-fzd">0</b>%</div></div>
+        </div>
+        <div class="pipe"><i></i><i></i><i></i></div>
+        <div class="m-col out">
+          <div class="formula">
+            <div class="f-line main"><span class="f-lbl">usual batch × expected demand (<span class="f-basis">fuzzy</span>)</span><br>
+              <span class="num n-batch">0</span><span class="op">×</span><span class="num n-dem">0</span>%<span class="op">=</span><span class="num res n-rec">0</span> <span class="f-lbl">portions to cook</span></div>
+            <div class="f-line"><span class="num n-saved">0</span> not cooked<span class="op">×</span><span class="num n-kgp">0</span> kg<span class="op">=</span><span class="num n-kg">0</span> kg food saved</div>
+            <div class="f-line"><span class="num n-saved2">0</span><span class="op">×</span><span class="num n-kwhp">0</span> kWh<span class="op">+</span><span class="num n-warm">0</span> kWh warmers<span class="op">=</span><span class="num n-kwh">0</span> kWh saved</div>
+          </div>
+          ${compact ? "" : potHTML(uid)}
+        </div>
+      </div>`;
+    const q = (s) => host.querySelector(s), qa = (s) => host.querySelectorAll(s);
+    q(".play-btn").onclick = () => (PLAY.on ? stopPlay() : startPlay());
+    qa(".speed-seg .seg-btn").forEach((b) => b.onclick = () => setSpeed(+b.dataset.v));
+    const last = { sig: "", path: "", zones: {} };
+
+    function pulse() {
+      qa(".pipe").forEach((p) => { p.classList.remove("burst"); void p.offsetWidth; p.classList.add("burst"); });
+      clearTimeout(last.pt);
+      last.pt = setTimeout(() => qa(".pipe").forEach((p) => p.classList.remove("burst")), 1100);
+      qa(".eng-box").forEach((b) => b.classList.add("hot"));
+      clearTimeout(last.ht);
+      last.ht = setTimeout(() => qa(".eng-box").forEach((b) => b.classList.remove("hot")), 700);
+    }
+
+    function update(d) {
+      const { fz, pred, used, rec, saved, kwh, warmerKwh, A, tier } = d;
+      const vals = { rain: fz.x.rain, air: fz.x.air, day: fz.x.day_demand, time: state.time };
+      const sig = [vals.rain.toFixed(2), Math.round(vals.air), Math.round(vals.day), vals.time, rec, state.basis].join("|");
+      if (sig !== last.sig) { last.sig = sig; pulse(); }
+
+      knobs.forEach((k) => {
+        const el = q(`.knob[data-k="${k.key}"]`), v = vals[k.key];
+        el.querySelector(".needle").style.transform = `rotate(${kAngle(k, v).toFixed(1)}deg)`;
+        el.querySelector(".k-val").textContent = k.fmt(v);
+        if (k.unitFn) el.querySelector(".k-unit").textContent = k.unitFn(v);
+        const z = k.zones.find((zz) => v >= zz.from && v < zz.to) || k.zones[v < k.min ? 0 : k.zones.length - 1];
+        const lbl = el.querySelector(".k-zone-lbl");
+        lbl.textContent = z.name; lbl.style.setProperty("--zc", z.color);
+        if (last.zones[k.key] && last.zones[k.key] !== z.name) { el.classList.remove("bump"); void el.offsetWidth; el.classList.add("bump"); }
+        last.zones[k.key] = z.name;
+      });
+
+      // decision tree: questions light up one after another
+      const pathSig = pred.path.map((s) => s.node).join(",") + ">" + pred.leaf;
+      if (pathSig !== last.path) {
+        last.path = pathSig;
+        q(".tree-path").innerHTML = pred.path.map((s, i) =>
+          `<span class="lit" style="animation-delay:${RM ? 0 : i * 140}ms">${SHORT_FEAT[s.feature]}? <b class="${s.yes ? "" : "no"}">${s.yes ? "Yes" : "No"}</b></span>`).join("");
+      }
+      const tb = q(".t-tree");
+      tb.textContent = `${tier} · ${Math.round(pred.confidence * 100)}%`; tb.style.setProperty("--tc", COLORS[tier]);
+
+      // fuzzy: aggregated output shape morphs, centroid slides
+      let dpath = "M0 60";
+      for (let i = 0; i < FZ_U.length; i += 4) dpath += ` L${(FZ_U[i] * 2).toFixed(1)} ${(60 - fz.agg[i] * 56).toFixed(1)}`;
+      dpath += " L200 60 Z";
+      const area = q(".fz-area");
+      if (CSS && CSS.supports && CSS.supports("d", 'path("M0 0")')) area.style.d = `path("${dpath}")`; else area.setAttribute("d", dpath);
+      const cent = q(".fz-cent");
+      cent.style.transform = `translateX(${(fz.score * 2).toFixed(1)}px)`;
+      cent.style.setProperty("--tc", COLORS[fz.tier]);
+      const fb = q(".t-fz");
+      fb.textContent = fz.tier; fb.style.setProperty("--tc", COLORS[fz.tier]);
+      tween(q(".n-score"), Math.round(fz.score));
+      tween(q(".n-fzd"), Math.round(fz.demand));
+
+      // formula strip with rolling numbers
+      q(".f-basis").textContent = state.basis === "fuzzy" ? "fuzzy logic" : "survey formula";
+      tween(q(".n-batch"), state.batch);
+      tween(q(".n-dem"), Math.round(used * 100));
+      tween(q(".n-rec"), rec);
+      tween(q(".n-saved"), saved);
+      tween(q(".n-kgp"), A.kg, 2);
+      tween(q(".n-kg"), saved * A.kg, 1);
+      tween(q(".n-saved2"), saved);
+      tween(q(".n-kwhp"), A.kwh, 2);
+      tween(q(".n-warm"), warmerKwh, 1);
+      tween(q(".n-kwh"), kwh, 1);
+
+      // cooking pot fills to the recommended share of the usual batch
+      const liquid = q(".p-liquid");
+      if (liquid) {
+        const frac = Math.max(0, Math.min(rec / Math.max(state.batch, 1), 1));
+        liquid.style.transform = `translateY(${(83 * (1 - frac)).toFixed(1)}px)`;
+        tween(q(".n-pcook"), rec);
+        tween(q(".n-pbatch"), state.batch);
+      }
+    }
+
+    return { update, host };
+  }
+
+  function syncPlayButtons() {
+    CALCS.forEach((c) => {
+      const b = c.host.querySelector(".play-btn");
+      b.textContent = PLAY.on ? "❚❚ Pause auto-play" : (state.time >= CLOSE ? "↺ Replay the day" : "▶ Auto-play the day");
+      b.classList.toggle("on", PLAY.on);
+      c.host.querySelectorAll(".speed-seg .seg-btn").forEach((s) => s.classList.toggle("active", +s.dataset.v === PLAY.speed));
+    });
+  }
+
+  function startPlay() {
+    if (state.time >= CLOSE) state.time = OPEN;
+    PLAY.on = true;
+    state.follow = false;
+    clearInterval(PLAY.timer);
+    PLAY.timer = setInterval(() => {
+      if (state.time >= CLOSE) { stopPlay(); render(); return; }
+      state.time = Math.min(CLOSE, state.time + STEP);
+      render();
+    }, 500 / PLAY.speed); // 1× = one hour of the day per second
+    elog("SYS", `auto-play started at ${fmtTime(state.time)} (${PLAY.speed}× speed)`);
+    syncPlayButtons();
+    render();
+  }
+
+  function stopPlay() {
+    PLAY.on = false;
+    clearInterval(PLAY.timer);
+    elog("SYS", `auto-play stopped at ${fmtTime(state.time)}`);
+    syncPlayButtons();
+  }
+
+  function setSpeed(v) {
+    PLAY.speed = v;
+    if (PLAY.on) { stopPlay(); startPlay(); } else syncPlayButtons();
   }
 
   /* ------------------------------------------------------- engine console */
@@ -1252,6 +1500,8 @@
   $("theme-btn").onclick = () => setTheme(THEME === "dark" ? "light" : "dark");
   $("theme-btn").setAttribute("aria-label", THEME === "dark" ? "Switch to light mode" : "Switch to dark mode");
   buildControls();
+  CALCS = [createCalc($("calc-main"), false), createCalc($("calc-eng"), true)].filter(Boolean);
+  syncPlayButtons();
   setupEngine();
   fillStats();
   buildModel(); // assumption inputs live in the model tab and are read by render()

@@ -39,6 +39,19 @@ Any live value can be overridden by hand, or live mode can be switched off to te
 
 The dashboard has four tabs: **Daily advisor**, **Survey insights** (all survey charts), **Model & method** (accuracy, confusion matrix, feature importance, fuzzy rule base, test scenarios, assumptions, limitations) and **Engine console** (live trace + training replay). A ☀️/🌙 switch in the header toggles **light and dark mode**, and the choice is remembered in your browser.
 
+### Live calculation (animated)
+
+A "machine" card on the Daily advisor tab (with a compact copy on the Engine console tab) shows the calculation as it happens:
+
+- **Four dials**: rain (mm/h), PM2.5, day demand and time of day. Each needle swings to the current value, and the coloured arcs mark the fuzzy sets (e.g. Dry / Light / Heavy) with the current zone named underneath.
+- **Data pipes**: dots travel from the dials into the engines, and burst whenever an input changes.
+- **Engines**: the decision tree's yes/no questions light up one by one, ending in a tier badge. The fuzzy output shape morphs, and its centroid line slides to the new score.
+- **Formula strip** with rolling numbers: *usual batch × expected demand = portions to cook*, then food (kg) and energy (kWh) saved.
+- **Cooking pot**: fills to the recommended share of the usual batch, which is marked by a dashed line.
+- **▶ Auto-play the day**: sweeps from 7 AM to 11 PM at one hour per second (0.5×, 1× or 2× speed) using the live hourly forecast. Dragging the time slider takes back control.
+
+The panel respects the system "reduce motion" setting: numbers update without animation.
+
 ## How it works
 
 ```
