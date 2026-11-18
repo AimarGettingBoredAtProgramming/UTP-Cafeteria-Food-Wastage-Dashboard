@@ -339,16 +339,7 @@
 
   /* ------------------------------------------------------------ controls */
   function buildControls() {
-    CFG.days.forEach((d, idx) => {
-      const b = document.createElement("button");
-      b.className = "chip"; b.textContent = d; b.dataset.val = d; b.type = "button";
-      b.onclick = () => {
-        if (state.live) { state.date = addDays(state.date, idx - dowIdx(state.date)); state.ovCal = state.ovWx = false; }
-        else state.day = d;
-        render();
-      };
-      $("day-chips").appendChild(b);
-    });
+    setupDatePicker();
     const seg = (el, key, opts, ov) => opts.forEach((o) => {
       const b = document.createElement("button");
       b.className = "seg-btn"; b.type = "button"; b.dataset.val = o;
@@ -384,9 +375,7 @@
     $("now-btn").onclick = () => { state.date = todayKL(); state.time = nowSlot(); state.follow = true; state.ovCal = state.ovWx = false; render(); };
     $("refresh-btn").onclick = () => { $("updated").textContent = "Refreshing…"; refreshWeather("manual"); };
 
-    $("date").value = state.date;
-    $("date").onchange = (e) => { if (e.target.value) { state.date = e.target.value; state.follow = false; state.ovCal = state.ovWx = false; render(); } };
-    $("today-btn").onclick = () => { state.date = todayKL(); state.ovCal = state.ovWx = false; render(); };
+    $("today-btn").onclick = () => { if (state.live) pickDate(todayKL()); };
     $("live").onchange = (e) => {
       if (!e.target.checked) {
         const sc = scenarioFor(state.date);
@@ -401,6 +390,147 @@
     $("batch").oninput = (e) => setBatch(+e.target.value);
     ["a-kg", "a-rm", "a-kwh", "a-warm", "a-hrs", "a-co2"].forEach((id) => { $(id).oninput = render; });
     $("cafe").onchange = render;
+  }
+
+  /* --------------------------------------------------------- date picker */
+  // A week strip (‹ week › + 7 day buttons) and a month calendar grouped into week rows,
+  // colour-coded by the UTP academic calendar.
+  const DP = { month: state.date.slice(0, 7), open: false };
+  const MONTHS_LONG = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+  function calKind(iso) {
+    const c = calendarFor(iso);
+    const isHol = (CAL.public_holidays || []).some((h) => h.date === iso);
+    if (isHol) return { kind: "hol", c };
+    if (c.calendar === "Exam week") return { kind: "exam", c };
+    if (c.calendar === "Holiday / break") return { kind: "brk", c };
+    if (/Lecture week/.test(c.title)) return { kind: /blended/.test(c.title) ? "blend" : "lec", c };
+    return { kind: "none", c };
+  }
+
+  // what to call a week: its lecture-week number, otherwise the main calendar period
+  function weekLabel(monIso) {
+    const days = Array.from({ length: 7 }, (_, k) => calendarFor(addDays(monIso, k)));
+    const lec = days.map((c) => c.title.match(/Lecture week (\d+)/)).find(Boolean);
+    if (lec) return { long: `Lecture week ${lec[1]}`, short: `W${lec[1]}` };
+    const isHolName = (c) => (CAL.public_holidays || []).some((h) => h.name === c.title);
+    const periods = [...new Set(days.slice(0, 5).filter((c) => c.title !== "No calendar entry" && !isHolName(c)).map((c) => c.title))];
+    const main = days.slice(0, 5).find((c) => c.title === periods[0]) || days[2];
+    const short = main.calendar === "Exam week" ? (/Study/.test(main.title) ? "Study" : "Exam") : main.calendar === "Holiday / break" ? (/Orientation/.test(main.title) ? "Orient." : "Break") : "";
+    const long = periods.length ? periods.slice(0, 2).join(" → ") : "Outside the semester";
+    return { long, short };
+  }
+
+  function rangeLabel(monIso) {
+    const a = toDate(monIso), b = toDate(addDays(monIso, 6));
+    const left = a.getMonth() === b.getMonth() ? `${a.getDate()}` : `${a.getDate()} ${MONTHS[a.getMonth()]}`;
+    return `${left} – ${b.getDate()} ${MONTHS[b.getMonth()]} ${b.getFullYear()}`;
+  }
+
+  function pickDate(iso) {
+    state.date = iso; state.follow = false; state.ovCal = state.ovWx = false;
+    DP.month = iso.slice(0, 7);
+    closeMonth();
+    render();
+  }
+
+  function setupDatePicker() {
+    $("wk-prev").onclick = () => { if (state.live) pickDate(addDays(state.date, -7)); };
+    $("wk-next").onclick = () => { if (state.live) pickDate(addDays(state.date, 7)); };
+    $("week-strip").onclick = (e) => {
+      const b = e.target.closest(".wpill");
+      if (!b) return;
+      if (state.live) pickDate(b.dataset.iso);
+      else { state.day = b.dataset.day; render(); }
+    };
+    $("dp-open").onclick = () => (DP.open ? closeMonth() : openMonth());
+    // the calendar lives at the top level of the page so it can't be clipped or
+    // re-anchored by the blurred card around the date picker
+    document.body.appendChild($("dp-pop"));
+    window.addEventListener("resize", () => { if (DP.open) placeMonth(); });
+    $("dp-pop").onclick = (e) => {
+      e.stopPropagation(); // clicks inside the calendar never count as "outside"
+      const nav = e.target.closest("[data-mnav]");
+      if (nav) { const [y, m] = DP.month.split("-").map(Number); const d = new Date(y, m - 1 + +nav.dataset.mnav, 1); DP.month = toIso(d).slice(0, 7); renderMonth(); return; }
+      const cell = e.target.closest(".mcell");
+      if (cell) pickDate(cell.dataset.iso);
+      if (e.target.closest("[data-mtoday]")) pickDate(todayKL());
+      if (e.target.closest("[data-mclose]")) closeMonth();
+    };
+    document.addEventListener("click", (e) => { if (DP.open && !e.target.closest("#datepick, #dp-pop")) closeMonth(); });
+    document.addEventListener("keydown", (e) => { if (DP.open && e.key === "Escape") { closeMonth(); $("dp-open").focus(); } });
+  }
+
+  function openMonth() {
+    if (!state.live) return;
+    DP.open = true; DP.month = state.date.slice(0, 7);
+    $("dp-pop").hidden = false; $("dp-open").setAttribute("aria-expanded", "true");
+    renderMonth();
+    placeMonth();
+  }
+  // desktop: open just under the week title; phones: CSS turns it into a bottom sheet
+  function placeMonth() {
+    const pop = $("dp-pop");
+    if (window.matchMedia("(max-width: 760px)").matches) { pop.style.top = pop.style.left = ""; return; }
+    const r = $("datepick").getBoundingClientRect(), head = document.querySelector(".dp-head").getBoundingClientRect();
+    pop.style.top = `${Math.round(head.bottom + window.scrollY + 6)}px`;
+    pop.style.left = `${Math.round(Math.max(12, Math.min(r.left + window.scrollX, window.innerWidth - 372)))}px`;
+  }
+  function closeMonth() {
+    DP.open = false;
+    $("dp-pop").hidden = true; $("dp-open").setAttribute("aria-expanded", "false");
+  }
+
+  const KIND_ICON = { exam: "📝", brk: "🏖️", hol: "🎉", blend: "💻" };
+
+  function renderDatePicker(sc) {
+    const live = state.live, today = todayKL();
+    const mon = addDays(state.date, -dowIdx(state.date));
+    const wl = weekLabel(mon);
+    $("dp-week").textContent = live ? wl.long : "Manual mode";
+    $("dp-range").textContent = live ? rangeLabel(mon) : "pick a day of the week";
+    $("wk-prev").disabled = $("wk-next").disabled = !live;
+    $("dp-open").disabled = !live;
+    const h = Math.floor(state.time / 60);
+    $("week-strip").innerHTML = CFG.days.map((d, k) => {
+      const iso = addDays(mon, k), { kind, c } = calKind(iso);
+      const wx = weatherAt(iso, h);
+      const sel = live ? iso === state.date : d === state.day;
+      const mark = live ? (wx ? wx.ico : KIND_ICON[kind] || "·") : "";
+      const tip = live ? `${DAY_FULL[d]} ${shortDate(iso)} · ${c.title}${wx ? " · " + wx.title + " at " + fmtHour(h) : ""}` : DAY_FULL[d];
+      return `<button type="button" class="wpill k-${live ? kind : "none"}${sel ? " sel" : ""}${live && iso === today ? " today" : ""}" data-iso="${iso}" data-day="${d}" title="${tip}" aria-pressed="${sel}">
+        <span class="wd">${d}</span>${live ? `<span class="dn">${toDate(iso).getDate()}</span><span class="wm">${mark}</span>` : ""}</button>`;
+    }).join("");
+    if (DP.open) renderMonth();
+  }
+
+  function renderMonth() {
+    const [y, m] = DP.month.split("-").map(Number);
+    const first = `${DP.month}-01`, startMon = addDays(first, -dowIdx(first));
+    const daysIn = new Date(y, m, 0).getDate(), rows = Math.ceil((dowIdx(first) + daysIn) / 7);
+    const today = todayKL(), h = Math.floor(state.time / 60);
+    let grid = `<div class="mrow mhead"><span class="mwk"></span>${CFG.days.map((d) => `<span>${d.slice(0, 2)}</span>`).join("")}</div>`;
+    for (let r = 0; r < rows; r++) {
+      const mon = addDays(startMon, r * 7), wl = weekLabel(mon);
+      grid += `<div class="mrow"><span class="mwk" title="${wl.long}">${wl.short}</span>`;
+      for (let k = 0; k < 7; k++) {
+        const iso = addDays(mon, k), dt = toDate(iso), { kind, c } = calKind(iso), wx = weatherAt(iso, h);
+        const cls = ["mcell", "k-" + kind, dt.getMonth() !== m - 1 ? "out" : "", iso === state.date ? "sel" : "", iso === today ? "today" : ""].join(" ");
+        grid += `<button type="button" class="${cls}" data-iso="${iso}" title="${DAY_FULL[CFG.days[k]]} ${shortDate(iso)} · ${c.title}${wx ? " · " + wx.title : ""}">
+          <span class="mn">${dt.getDate()}</span>${wx ? `<span class="mx">${wx.ico}</span>` : kind === "hol" ? '<span class="mx">🎉</span>' : ""}</button>`;
+      }
+      grid += "</div>";
+    }
+    $("dp-pop").innerHTML = `
+      <div class="mhd"><button type="button" class="dp-nav" data-mnav="-1" aria-label="Previous month">‹</button>
+        <strong>${MONTHS_LONG[m - 1]} ${y}</strong>
+        <button type="button" class="dp-nav" data-mnav="1" aria-label="Next month">›</button></div>
+      <div class="mgrid">${grid}</div>
+      <div class="mlegend">
+        <span><i class="k-lec"></i>Lectures</span><span><i class="k-exam"></i>Study / exams</span>
+        <span><i class="k-brk"></i>Break / no class</span><span><i class="k-hol"></i>Public holiday</span>
+        <span>☀️ forecast available</span></div>
+      <div class="mfoot"><button type="button" class="ghost-btn" data-mtoday>Go to today</button><button type="button" class="ghost-btn" data-mclose>Close</button></div>`;
   }
 
   function setTime(min) {
@@ -419,12 +549,10 @@
   }
 
   function syncControls(sc) {
-    document.querySelectorAll("#day-chips .chip").forEach((b) => b.classList.toggle("active", b.dataset.val === sc.day));
+    renderDatePicker(sc);
     [["cal-seg", sc.calendar], ["wx-seg", sc.weather], ["basis-seg", state.basis]].forEach(([el, v]) =>
       document.querySelectorAll(`#${el} .seg-btn`).forEach((b) => b.classList.toggle("active", b.dataset.val === v)));
-    $("date").value = state.date;
-    $("date").disabled = !state.live;
-    $("today-btn").disabled = !state.live;
+    $("today-btn").disabled = !state.live || state.date === todayKL();
     $("short-break").checked = state.shortBreak;
     if (+$("batch").value !== state.batch) $("batch").value = state.batch;
     $("batch-range").value = Math.min(400, state.batch);
@@ -1447,6 +1575,77 @@
     $("m-med").textContent = Math.round(CFG.risk_thresholds.Medium * 100);
   }
 
+  /* ---------------------------------------------------------------- guide */
+  // "?" buttons on each card open the matching guide section; "Show me →" in the guide
+  // jumps back to that part of the dashboard and highlights it.
+  function spotlight(el) {
+    if (!el) return;
+    el.classList.remove("spot"); void el.offsetWidth; el.classList.add("spot");
+    setTimeout(() => el.classList.remove("spot"), 2300);
+  }
+
+  function goGuide(id) {
+    showTab("guide");
+    const el = $(id);
+    if (!el) return;
+    setTimeout(() => { el.scrollIntoView({ behavior: "auto", block: "start" }); spotlight(el); }, 40);
+  }
+
+  function setupGuide() {
+    const headingWith = (sel, text) => [...document.querySelectorAll(sel)].find((h) => h.textContent.includes(text));
+    const HELP = [
+      [document.querySelector(".inputs h2"), "g-inputs"],
+      [document.querySelector(".date-label > span"), "g-date"],
+      [document.querySelector(".time-card .live-lbl"), "g-time"],
+      [document.querySelector("#calc-main .calc-head h3"), "g-calc"],
+      [document.querySelector("#calc-eng .calc-head h3"), "g-calc"],
+      [document.querySelector("#wx-card .live-lbl"), "g-live"],
+      [document.querySelector("#cal-card .live-lbl"), "g-live"],
+      [document.querySelector(".risk-title"), "g-risk"],
+      [document.querySelector(".kpi.primary .kpi-lbl"), "g-kpi"],
+      [document.querySelector(".fuzzy-card h3"), "g-fuzzy"],
+      [headingWith("#tab-predict h3", "Cooking"), "g-plan"],
+      [headingWith("#tab-predict h3", "Why the model"), "g-why"],
+      [headingWith("#tab-predict h3", "Next 7 days"), "g-week"],
+      [headingWith("#tab-predict h3", "Expected customers"), "g-slots"],
+      [document.querySelector("#tab-insights .insight-grid h3"), "g-insights"],
+      [document.querySelector("#tab-model h3"), "g-model"],
+      [document.querySelector(".eng-title strong"), "g-engine"],
+    ];
+    HELP.forEach(([el, id]) => {
+      if (!el) return;
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "help-i"; b.textContent = "?";
+      b.title = "What is this? Open the guide"; b.setAttribute("aria-label", "Help: open the guide for this part");
+      b.onclick = (e) => { e.preventDefault(); e.stopPropagation(); goGuide(id); };
+      el.appendChild(b);
+    });
+
+    document.querySelectorAll(".g-jump").forEach((b) => b.onclick = () => {
+      showTab(b.dataset.tab);
+      const el = document.querySelector(b.dataset.jump);
+      if (!el) return;
+      setTimeout(() => { el.scrollIntoView({ behavior: "auto", block: "center" }); spotlight(el.closest(".card") || el); }, 40);
+    });
+
+    // contents list: smooth scroll + highlight the section being read
+    const links = [...document.querySelectorAll(".g-toc a")];
+    links.forEach((a) => a.onclick = (e) => {
+      e.preventDefault();
+      const el = document.querySelector(a.getAttribute("href"));
+      if (el) el.scrollIntoView({ behavior: RM || document.hidden ? "auto" : "smooth", block: "start" });
+    });
+    if ("IntersectionObserver" in window) {
+      const io = new IntersectionObserver((entries) => {
+        entries.forEach((en) => {
+          if (!en.isIntersecting) return;
+          links.forEach((a) => a.classList.toggle("on", a.getAttribute("href") === "#" + en.target.id));
+        });
+      }, { rootMargin: "-130px 0px -60% 0px" });
+      document.querySelectorAll(".g-body > article[id]").forEach((s) => io.observe(s));
+    }
+  }
+
   /* ---------------------------------------------------------------- theme */
   function applyChartDefaults() {
     Chart.defaults.color = TH.text;
@@ -1503,6 +1702,7 @@
   CALCS = [createCalc($("calc-main"), false), createCalc($("calc-eng"), true)].filter(Boolean);
   syncPlayButtons();
   setupEngine();
+  setupGuide();
   fillStats();
   buildModel(); // assumption inputs live in the model tab and are read by render()
   render();

@@ -37,6 +37,7 @@
       <button class="tab" data-tab="insights" role="tab">Survey insights</button>
       <button class="tab" data-tab="model" role="tab">Model &amp; method</button>
       <button class="tab" data-tab="engine" role="tab"><span class="eng-tab-dot"></span>Engine console</button>
+      <button class="tab" data-tab="guide" role="tab">📖 Guide</button>
     </nav>
   </header>
 
@@ -60,10 +61,21 @@
             </label>
           </div>
 
-          <label class="field-label" for="date">Date</label>
-          <div class="date-row">
-            <input type="date" id="date">
-            <button type="button" class="ghost-btn" id="today-btn">Today</button>
+          <div class="field-label date-label">
+            <span>Date <span class="badge" id="b-day"></span></span>
+            <button type="button" class="link-btn today-link" id="today-btn">↺ Today</button>
+          </div>
+          <div class="datepick" id="datepick">
+            <div class="dp-head">
+              <button type="button" class="dp-nav" id="wk-prev" aria-label="Previous week">‹</button>
+              <button type="button" class="dp-title" id="dp-open" aria-haspopup="dialog" aria-expanded="false" title="Open the month calendar">
+                <span class="dp-week" id="dp-week">–</span>
+                <span class="dp-range" id="dp-range">–</span>
+              </button>
+              <button type="button" class="dp-nav" id="wk-next" aria-label="Next week">›</button>
+            </div>
+            <div class="week-strip" id="week-strip" role="group" aria-label="Days of the selected week"></div>
+            <div class="dp-pop" id="dp-pop" role="dialog" aria-label="Choose a date" hidden></div>
           </div>
 
           <label class="field-label" for="cafe">Cafeteria</label>
@@ -73,9 +85,6 @@
             <option>Village 5 Cafeteria</option><option>Village 6 Cafeteria</option>
             <option>Village 7 Cafeteria</option><option>Other campus outlet</option>
           </select>
-
-          <span class="field-label">Day <span class="badge" id="b-day"></span></span>
-          <div class="chips" id="day-chips"></div>
 
           <span class="field-label">Academic calendar <span class="badge" id="b-cal"></span></span>
           <div class="segmented" id="cal-seg"></div>
@@ -435,6 +444,328 @@
           <div class="eng-log" id="eng-log" role="log" aria-live="off"></div>
         </div>
       </section>
+    </section>
+    <!-- ===================== GUIDE ===================== -->
+    <section id="tab-guide" class="tab-panel">
+      <div class="guide">
+        <nav class="g-toc card" aria-label="Guide contents">
+          <strong>Guide</strong>
+          <a href="#g-start">Quick start</a>
+          <a href="#g-header">Top bar &amp; tabs</a>
+          <span class="g-toc-h">Daily advisor</span>
+          <a href="#g-inputs">1 · Plan a service</a>
+          <a href="#g-date">2 · Date picker</a>
+          <a href="#g-time">3 · Time of service</a>
+          <a href="#g-calc">4 · Live calculation</a>
+          <a href="#g-live">5 · Weather &amp; calendar</a>
+          <a href="#g-risk">6 · Risk card</a>
+          <a href="#g-kpi">7 · Savings tiles</a>
+          <a href="#g-fuzzy">8 · Fuzzy logic view</a>
+          <a href="#g-plan">9 · Cooking plan</a>
+          <a href="#g-why">10 · Why the model says this</a>
+          <a href="#g-week">11 · Next 7 days</a>
+          <a href="#g-slots">12 · Customers by time slot</a>
+          <a href="#g-tips">13 · Tips</a>
+          <span class="g-toc-h">Other tabs</span>
+          <a href="#g-insights">Survey insights</a>
+          <a href="#g-model">Model &amp; method</a>
+          <a href="#g-engine">Engine console</a>
+          <span class="g-toc-h">Reference</span>
+          <a href="#g-glossary">Glossary</a>
+          <a href="#g-demo">2-minute demo script</a>
+        </nav>
+
+        <div class="g-body">
+          <article class="card g-hero" id="g-start">
+            <h2>How to use the Batch Advisor</h2>
+            <p>The dashboard answers one question for a cafeteria vendor: <b>"How many portions should I cook for this meal, so I don't waste food and energy?"</b>
+              It looks at the <b>day</b>, the <b>UTP academic calendar</b> and the <b>live weather</b>, predicts how many students will turn up, and turns that into a batch size and a cooking plan.</p>
+            <ol class="g-steps">
+              <li><b>Pick a date</b> in the week strip on the left (or open the 📅 month calendar).</li>
+              <li><b>Drag the time slider</b> to the meal you are planning (lunch, dinner…).</li>
+              <li><b>Enter your usual batch</b>: how many portions you cook on a normal day.</li>
+              <li><b>Read the risk card</b>: <span class="g-tier low">Low</span> cook as usual · <span class="g-tier med">Medium</span> cook a bit less · <span class="g-tier high">High</span> cook a lot less.</li>
+              <li><b>Follow the cooking plan</b> and check the savings tiles.</li>
+            </ol>
+            <p class="muted small">Tip: every card has a small <span class="help-i demo">?</span> button that opens its section of this guide.</p>
+          </article>
+
+          <article class="card g-item" id="g-header">
+            <h3>Top bar &amp; tabs</h3>
+            <div class="g-grid">
+              <div><h4>What you see</h4><ul>
+                <li><b>Live weather · Open-Meteo</b> — green dot = forecast loaded. Amber = no haze data, red = offline.</li>
+                <li><b>UTP academic calendar</b> — the official 2026/2027 semester dates are loaded.</li>
+                <li><b>☀️/🌙 switch</b> — light or dark mode (remembered next time).</li>
+                <li><b>Prototype banner</b> — reminds viewers that predictions come from a 56-student survey, not real sales.</li>
+              </ul></div>
+              <div><h4>The five tabs</h4><ul>
+                <li><b>Daily advisor</b> — the tool itself: inputs on the left, answers on the right.</li>
+                <li><b>Survey insights</b> — the evidence: all the survey charts.</li>
+                <li><b>Model &amp; method</b> — proof the AI works: accuracy, rules, test scenarios.</li>
+                <li><b>Engine console</b> — the "backend": a step-by-step log of every calculation.</li>
+                <li><b>Guide</b> — this page.</li>
+              </ul></div>
+            </div>
+          </article>
+
+          <h2 class="g-sec">Daily advisor, part by part</h2>
+
+          <article class="card g-item" id="g-inputs">
+            <h3><span class="g-num">1</span> Plan a service (left panel)</h3>
+            <div class="g-grid">
+              <div><h4>What it tells you</h4><p>The situation you are planning for. In <b>Live data</b> mode the day, academic calendar and weather fill themselves in; you only choose the date, time and batch size.</p></div>
+              <div><h4>How to use it</h4><ul>
+                <li><b>Live data switch</b> — ON: automatic. OFF: manual "what-if" mode where you set everything yourself.</li>
+                <li><b>LIVE / MANUAL tags</b> — show whether a value came from live data or you changed it. <b>↺ Back to live</b> undoes your changes.</li>
+                <li><b>Academic calendar</b> — Normal week / Exam week / Holiday. Click one to override.</li>
+                <li><b>Weather</b> — Clear / Heavy rain / Haze. Click one to override the forecast.</li>
+                <li><b>Short class breaks</b> — switch on if most classes have &lt; 1-hour breaks (students skip lunch more).</li>
+                <li><b>Usual batch</b> — your normal-day portions. Everything is scaled from this number.</li>
+              </ul></div>
+            </div>
+            <button type="button" class="g-jump" data-tab="predict" data-jump=".inputs">Show me →</button>
+          </article>
+
+          <article class="card g-item" id="g-date">
+            <h3><span class="g-num">2</span> Date picker</h3>
+            <div class="g-grid">
+              <div><h4>What it tells you</h4><p>Which week you are in and what kind of week it is in the UTP calendar (e.g. <i>Lecture week 11</i>, <i>Study break → Final examination</i>, <i>Semester break</i>).</p></div>
+              <div><h4>How to read it</h4><ul>
+                <li><b>‹ ›</b> move one week back or forward. <b>↺ Today</b> jumps back to today.</li>
+                <li>Each day button shows the <b>date</b>, a <b>weather icon</b> for the chosen time, and a coloured line: <span class="g-k lec">lectures</span> <span class="g-k exam">study / exams</span> <span class="g-k brk">break / no class</span> <span class="g-k hol">public holiday</span>.</li>
+                <li>Click the week title to open the <b>month calendar</b>: one row per week, labelled with the lecture week (W8, W9…) or "Study", "Exam", "Break".</li>
+              </ul></div>
+            </div>
+            <button type="button" class="g-jump" data-tab="predict" data-jump="#datepick">Show me →</button>
+          </article>
+
+          <article class="card g-item" id="g-time">
+            <h3><span class="g-num">3</span> Time of service</h3>
+            <div class="g-grid">
+              <div><h4>What it tells you</h4><p>The exact time you are planning for, which meal period it belongs to, and the hourly weather across the day. The prediction changes hour by hour with the forecast.</p></div>
+              <div><h4>How to read it</h4><ul>
+                <li><b>Big time + coloured chip</b> — e.g. <i>1:00 PM · 🍛 Lunch 11 AM – 3 PM</i>.</li>
+                <li><b>Coloured bands</b> — the meal periods; click one to jump there. Icons above the slider = forecast for each hour.</li>
+                <li><b>Updated x min ago</b> — the forecast reloads every 10 minutes; <b>↻ Refresh</b> does it now, <b>● Now</b> jumps to the current time.</li>
+                <li><b>Busyness line</b> — how many lunch customers arrive in this half-hour (from survey Q5).</li>
+                <li><b>Chart</b> — blue bars = rain each hour; line = expected customers (% of normal), dots coloured by risk.</li>
+              </ul></div>
+            </div>
+            <p class="g-ex">Example: dragging from 11 AM (dry) to 1 PM (storm) makes the line drop and the risk turn red.</p>
+            <button type="button" class="g-jump" data-tab="predict" data-jump=".time-card">Show me →</button>
+          </article>
+
+          <article class="card g-item" id="g-calc">
+            <h3><span class="g-num">4</span> Live calculation (the animated machine)</h3>
+            <div class="g-grid">
+              <div><h4>What it tells you</h4><p>The whole calculation, step by step, as a machine: <b>inputs → AI engines → answer</b>. It moves whenever anything changes.</p></div>
+              <div><h4>How to read it</h4><ul>
+                <li><b>Four dials</b> — rain (mm/h), air quality (PM2.5), day demand (% of a normal day) and time. Coloured arcs = fuzzy zones; the label underneath names the zone the needle is in.</li>
+                <li><b>Pipes</b> — dots flow down and speed up when data changes.</li>
+                <li><b>🌳 Decision tree</b> — the yes/no questions it asked, lighting up in order, ending in a risk badge.</li>
+                <li><b>〰️ Fuzzy logic</b> — the blended output shape; the red line (centroid) is the final score.</li>
+                <li><b>Formula</b> — usual batch × expected demand = portions to cook, then food and energy saved.</li>
+                <li><b>Pot</b> — fills to the recommended amount; the dashed line is your usual batch.</li>
+                <li><b>▶ Auto-play the day</b> — sweeps 7 AM → 11 PM (1 hour per second at 1×).</li>
+              </ul></div>
+            </div>
+            <button type="button" class="g-jump" data-tab="predict" data-jump="#calc-main">Show me →</button>
+          </article>
+
+          <article class="card g-item" id="g-live">
+            <h3><span class="g-num">5</span> Weather &amp; academic calendar cards</h3>
+            <div class="g-grid">
+              <div><h4>What it tells you</h4><p>The live facts behind the prediction for the selected hour and date.</p></div>
+              <div><h4>How to read it</h4><ul>
+                <li><b>Weather</b> — e.g. <i>Thunderstorm expected · 3.6 mm rain · 100% chance · 27°C · PM2.5 6</i>.</li>
+                <li><b>Academic calendar</b> — e.g. <i>Lecture week 11 · Sept 2026 Semester</i> or a public holiday name.</li>
+                <li>"(overridden)" means you changed it by hand on the left.</li>
+              </ul></div>
+            </div>
+            <button type="button" class="g-jump" data-tab="predict" data-jump=".live-strip">Show me →</button>
+          </article>
+
+          <article class="card g-item" id="g-risk">
+            <h3><span class="g-num">6</span> Risk card (the main answer)</h3>
+            <div class="g-grid">
+              <div><h4>What it tells you</h4><p>How likely it is that a normal-sized batch would leave food unsold: <span class="g-tier low">Low</span> <span class="g-tier med">Medium</span> <span class="g-tier high">High</span> surplus-waste risk.</p></div>
+              <div><h4>How to read it</h4><ul>
+                <li><b>Gauge</b> — expected customers as % of a normal weekday.</li>
+                <li><b>Model confidence</b> — how sure the decision tree is (low near a tier boundary).</li>
+                <li><b>🌳 / 〰️ chips</b> — the two AI verdicts side by side: decision tree tier and fuzzy score.</li>
+                <li><b>Amber note</b> — appears for breakfast, tea and supper, which the survey did not cover.</li>
+              </ul></div>
+            </div>
+            <button type="button" class="g-jump" data-tab="predict" data-jump="#risk-card">Show me →</button>
+          </article>
+
+          <article class="card g-item" id="g-kpi">
+            <h3><span class="g-num">7</span> Savings tiles</h3>
+            <div class="g-grid">
+              <div><h4>What it tells you</h4><p>The decision in numbers.</p></div>
+              <div><h4>How to read it</h4><ul>
+                <li><b>Recommended to cook</b> — portions for this meal, with a ±10% range.</li>
+                <li><b>Portions not wasted</b> — usual batch minus recommended.</li>
+                <li><b>Food saved</b> — portions × kg per portion, plus ingredient cost in RM.</li>
+                <li><b>Energy saved</b> — cooking energy plus warmers switched off in quiet hours, and the CO₂ this avoids.</li>
+              </ul><p class="muted small">The per-portion figures are editable assumptions on the Model &amp; method tab.</p></div>
+            </div>
+            <button type="button" class="g-jump" data-tab="predict" data-jump=".kpis">Show me →</button>
+          </article>
+
+          <article class="card g-item" id="g-fuzzy">
+            <h3><span class="g-num">8</span> Fuzzy logic view</h3>
+            <div class="g-grid">
+              <div><h4>What it tells you</h4><p>How the second AI technique (a Mamdani fuzzy system) reasons with the real numbers, so 0.9 mm and 1.1 mm of rain give similar answers instead of a sudden jump.</p></div>
+              <div><h4>How to read it</h4><ul>
+                <li><b>Three input charts</b> — the white line is today's value; the numbers below are how much it belongs to each group (e.g. rain <i>Light 0.60 · Heavy 0.40</i>).</li>
+                <li><b>Rules firing now</b> — each IF–THEN rule and its strength (0–1).</li>
+                <li><b>Waste-risk chart</b> — the combined shape; the coloured line (centroid) is the score out of 100.</li>
+                <li><b>Batch size from</b> — choose fuzzy logic (smooth) or the survey formula (step-like).</li>
+              </ul></div>
+            </div>
+            <button type="button" class="g-jump" data-tab="predict" data-jump=".fuzzy-card">Show me →</button>
+          </article>
+
+          <article class="card g-item" id="g-plan">
+            <h3><span class="g-num">9</span> Cooking &amp; energy plan</h3>
+            <div class="g-grid">
+              <div><h4>What it tells you</h4><p>What to actually do, in three timed steps for the selected meal.</p></div>
+              <div><h4>How to read it</h4><ul>
+                <li><b>Low</b> — cook the full batch, normal warmer schedule.</li>
+                <li><b>Medium</b> — cook ~80% first, top up only if it sells.</li>
+                <li><b>High</b> — cook ~60% first, small top-ups, switch off spare warmers and turn the hood down.</li>
+                <li>The note underneath warns about <b>rain inside this meal period</b> (e.g. "Rain from 1–3 PM: hold the next top-up").</li>
+              </ul></div>
+            </div>
+            <button type="button" class="g-jump" data-tab="predict" data-jump="#plan">Show me →</button>
+          </article>
+
+          <article class="card g-item" id="g-why">
+            <h3><span class="g-num">10</span> Why the model says this</h3>
+            <div class="g-grid">
+              <div><h4>What it tells you</h4><p>The reasoning, so the vendor can trust (or question) the advice.</p></div>
+              <div><h4>How to read it</h4><ul>
+                <li><b>Survey factors</b> — each condition's effect from the survey, e.g. <i>Heavy rain ×0.45</i> means 45% of normal customers.</li>
+                <li><b>Decision-tree path</b> — the yes/no questions the trained tree asked, ending in the risk tier and how many training days support it.</li>
+              </ul></div>
+            </div>
+            <button type="button" class="g-jump" data-tab="predict" data-jump="#factors">Show me →</button>
+          </article>
+
+          <article class="card g-item" id="g-week">
+            <h3><span class="g-num">11</span> Next 7 days</h3>
+            <div class="g-grid">
+              <div><h4>What it tells you</h4><p>A week-ahead outlook at the same time of day, using each day's forecast and calendar — useful for ordering ingredients.</p></div>
+              <div><h4>How to read it</h4><ul><li>% = expected customers; badge and coloured bottom line = risk tier. Click a day to plan it.</li></ul></div>
+            </div>
+            <button type="button" class="g-jump" data-tab="predict" data-jump="#week">Show me →</button>
+          </article>
+
+          <article class="card g-item" id="g-slots">
+            <h3><span class="g-num">12</span> Expected customers by time slot</h3>
+            <div class="g-grid">
+              <div><h4>What it tells you</h4><p>When the customers arrive within lunch (from survey Q5), normal day vs this service.</p></div>
+              <div><h4>How to read it</h4><ul><li>Grey bars = normal day, coloured bars = this service; the highlighted bar is your selected time. 12–1 PM is the main rush.</li></ul></div>
+            </div>
+            <button type="button" class="g-jump" data-tab="predict" data-jump="#slot-chart">Show me →</button>
+          </article>
+
+          <article class="card g-item" id="g-tips">
+            <h3><span class="g-num">13</span> Tips</h3>
+            <div class="g-grid">
+              <div><h4>What it tells you</h4><p>Practical extras that change with the situation (rain plan, exam period, break week, smaller portions, posting quiet hours), each backed by a survey number.</p></div>
+            </div>
+            <button type="button" class="g-jump" data-tab="predict" data-jump="#tips">Show me →</button>
+          </article>
+
+          <h2 class="g-sec">Other tabs</h2>
+
+          <article class="card g-item" id="g-insights">
+            <h3>Survey insights</h3>
+            <div class="g-grid">
+              <div><h4>What it tells you</h4><p>The evidence from the 56-student survey that the model is built on.</p></div>
+              <div><h4>How to read it</h4><ul>
+                <li><b>Headline numbers</b> — e.g. 68% unlikely to come in heavy rain; 91% rarely leave food on the plate.</li>
+                <li><b>Expected demand vs a normal weekday</b> — the multipliers the model uses (green ≥ 80%, amber 55–80%, red &lt; 55%).</li>
+                <li><b>Stacked bars</b> — how likely students are to come in each situation, from very unlikely (red) to very likely (teal).</li>
+                <li>The other charts describe lunch timing, meals, leftovers, forecast reactions and who answered.</li>
+              </ul></div>
+            </div>
+            <button type="button" class="g-jump" data-tab="insights" data-jump="#tab-insights .stat-row">Show me →</button>
+          </article>
+
+          <article class="card g-item" id="g-model">
+            <h3>Model &amp; method</h3>
+            <div class="g-grid">
+              <div><h4>What it tells you</h4><p>How the AI was built and how well it works.</p></div>
+              <div><h4>How to read it</h4><ul>
+                <li><b>How a prediction is made</b> — survey → multipliers → simulated history → decision tree → live inputs → advice.</li>
+                <li><b>93.8% accuracy</b> on test days the model never saw; <b>100%</b> agreement with the survey rule.</li>
+                <li><b>Feature importance</b> — which inputs matter most (heavy rain, holidays, exam week).</li>
+                <li><b>Confusion matrix</b> — rows = true risk, columns = predicted; the diagonal is correct.</li>
+                <li><b>Fuzzy section</b> — the 7 steps, the 27-rule table and the crisp-vs-fuzzy chart.</li>
+                <li><b>Test scenarios</b> — click a row to load it into the advisor.</li>
+                <li><b>Assumptions</b> — edit kg/portion, kWh/portion etc.; the savings update everywhere.</li>
+              </ul></div>
+            </div>
+            <button type="button" class="g-jump" data-tab="model" data-jump="#tab-model .flow">Show me →</button>
+          </article>
+
+          <article class="card g-item" id="g-engine">
+            <h3>Engine console</h3>
+            <div class="g-grid">
+              <div><h4>What it tells you</h4><p>A "backend" view: exactly what the code did for each prediction, line by line.</p></div>
+              <div><h4>How to read the log tags</h4><ul class="g-tags">
+                <li><span class="lt-tag" style="--tc:#38bdf8">API</span> forecast data received</li>
+                <li><span class="lt-tag" style="--tc:#a78bfa">CAL</span> academic-calendar lookup</li>
+                <li><span class="lt-tag" style="--tc:#fb923c">RULE</span> crisp weather rule</li>
+                <li><span class="lt-tag" style="--tc:#2dd4bf">ENCODE</span> the 8 yes/no features</li>
+                <li><span class="lt-tag" style="--tc:#34d399">TREE</span> each decision-tree question</li>
+                <li><span class="lt-tag" style="--tc:#fbbf24">FUZZY</span> memberships, rules, centroid</li>
+                <li><span class="lt-tag" style="--tc:#f472b6">ADVICE</span> the batch calculation</li>
+                <li><span class="lt-tag" style="--tc:#a3e635">TRAIN</span> training replay</li>
+              </ul></div>
+            </div>
+            <p class="g-ex"><b>▶ Replay training</b> regrows the decision tree in the browser on the same 3,780 training days and scores the 1,260 test days — it reaches the same 93.8% as the Python model.</p>
+            <button type="button" class="g-jump" data-tab="engine" data-jump="#engine">Show me →</button>
+          </article>
+
+          <article class="card g-item" id="g-glossary">
+            <h3>Glossary</h3>
+            <dl class="g-gloss">
+              <dt>Surplus-waste risk</dt><dd>How much of a normal batch would likely go unsold. Low ≥ 80% of normal customers, Medium 55–80%, High &lt; 55%.</dd>
+              <dt>Expected demand</dt><dd>Customers expected, as a % of a normal weekday.</dd>
+              <dt>Multiplier</dt><dd>A survey-based effect, e.g. heavy rain ×0.45 = 45% of normal customers.</dd>
+              <dt>Usual batch</dt><dd>What the vendor normally cooks on a normal weekday.</dd>
+              <dt>Decision tree</dt><dd>A flowchart of yes/no questions learned from 3,780 practice days (machine learning).</dd>
+              <dt>Leaf</dt><dd>The end of a decision-tree path, where the answer is given.</dd>
+              <dt>Gini impurity</dt><dd>How mixed a group of training days is (0 = all the same tier). The tree picks questions that lower it most.</dd>
+              <dt>Confidence</dt><dd>The share of similar training days that had the predicted tier.</dd>
+              <dt>Fuzzy set / membership</dt><dd>A group with soft edges, e.g. 1.4 mm of rain is 60% "light" and 40% "heavy".</dd>
+              <dt>Rule strength</dt><dd>How much an IF–THEN rule applies right now (the smallest of its memberships).</dd>
+              <dt>Centroid</dt><dd>The balance point of the combined fuzzy shape — the final fuzzy score.</dd>
+              <dt>Live vs manual</dt><dd>Live = values from the forecast and calendar; manual = values you set for "what-if" testing.</dd>
+              <dt>Simulated data</dt><dd>The training days were generated from survey answers because no real sales records were available.</dd>
+              <dt>PM2.5</dt><dd>Fine particles in the air (µg/m³). 35 or more is treated as haze.</dd>
+            </dl>
+          </article>
+
+          <article class="card g-item" id="g-demo">
+            <h3>2-minute demo script</h3>
+            <ol class="g-steps">
+              <li><b>Problem (Daily advisor):</b> "Vendors cook the same big batch every day; when students don't come, food and gas are wasted."</li>
+              <li><b>Live inputs:</b> point at the week strip (today's lecture week) and the weather card (live forecast).</li>
+              <li><b>Press ▶ Auto-play the day:</b> dials turn with the hourly rain, the pot level drops in the storm, numbers roll.</li>
+              <li><b>Risk card + plan:</b> "High risk at 1 PM → cook 54 instead of 120, saving ~23 kg of food and ~29 kWh."</li>
+              <li><b>Model &amp; method:</b> 93.8% accuracy, feature importance, crisp-vs-fuzzy chart.</li>
+              <li><b>Engine console:</b> press ▶ Replay training and show it reach 93.8% live.</li>
+              <li><b>Limitations:</b> survey-based simulated data; next step is real sales logs from vendors.</li>
+            </ol>
+          </article>
+        </div>
+      </div>
     </section>
   </main>
 

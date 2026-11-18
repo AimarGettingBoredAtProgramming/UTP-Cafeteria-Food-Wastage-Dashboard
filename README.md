@@ -21,7 +21,7 @@ The vendor picks a **date** and a **time of day** on a slider, and enters their 
 - **Auto-refresh:** the forecast is fetched again every 10 minutes (or on demand with ↻ Refresh). The slider follows the clock until you drag it. If a refresh changes the weather for an hour, a "Forecast changed" alert says what changed and how the risk moved.
 - **24-hour chart:** forecast rain per hour (bars) plotted against expected demand at each hour (line, coloured by risk tier).
 - **Academic calendar:** UTP lecture weeks, blended-learning and no-class weeks, study break, exams, semester break and public holidays, from [`docs/data/academic_calendar.js`](docs/data/academic_calendar.js).
-- **Day of week:** taken from the date.
+- **Date picker:** a week strip (‹ week › with 7 day buttons showing the date, hourly weather and a coloured academic-calendar marker) plus a 📅 month calendar grouped into week rows labelled with the UTP lecture week (W8, W9…) or Study / Exam / Break. The day of the week comes from the date.
 
 Lunch and dinner use the survey directly. Within lunch, the survey's lunch-time answers (Q5) show how busy each half-hour is. Breakfast, tea and supper weren't surveyed, so they use dinner-style rules and are labelled that way.
 
@@ -37,7 +37,7 @@ Any live value can be overridden by hand, or live mode can be switched off to te
 | Explanation | Survey factors applied + the decision-tree path |
 | Next 7 days | Live forecast + calendar risk tier for each upcoming day, at the selected time |
 
-The dashboard has four tabs: **Daily advisor**, **Survey insights** (all survey charts), **Model & method** (accuracy, confusion matrix, feature importance, fuzzy rule base, test scenarios, assumptions, limitations) and **Engine console** (live trace + training replay). A ☀️/🌙 switch in the header toggles **light and dark mode**, and the choice is remembered in your browser.
+The dashboard has five tabs: **Daily advisor**, **Survey insights** (all survey charts), **Model & method** (accuracy, confusion matrix, feature importance, fuzzy rule base, test scenarios, assumptions, limitations), **Engine console** (live trace + training replay) and **📖 Guide**, which explains every part of the dashboard (what it tells you, how to read it, and a "Show me →" button that jumps to it), with a glossary and a 2-minute demo script. Every card also has a small **?** button that opens its section of the guide. A ☀️/🌙 switch in the header toggles **light and dark mode**, and the choice is remembered in your browser.
 
 ### Live calculation (animated)
 
