@@ -2,6 +2,10 @@
 
 **An AI batch-cooking advisor that helps UTP cafeteria vendors cut food waste and kitchen energy use.**
 
+### ▶ [Open the live dashboard](https://aimargettingboredatprogramming.github.io/UTP-Cafeteria-Food-Wastage-Dashboard/)
+
+No install needed: it runs in any browser, on desktop or phone.
+
 TEB2023 Artificial Intelligence · Group 13 · Universiti Teknologi PETRONAS · *AI Solutions for Sustainable Energy and Industry*
 Supports **SDG 12** (Responsible Consumption & Production) and **SDG 7** (Affordable & Clean Energy).
 
